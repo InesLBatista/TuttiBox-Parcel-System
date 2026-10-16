@@ -24,4 +24,10 @@ public class ParcelService {
         hardwarePort.openCompartment(stationId, compartmentId);
         parcel.pickUp(recipientActor);
     }
+
+    public Parcel registerParcelForStation(Parcel parcel, String stationId, String compartmentSize) {
+        //validação da disponibilidade do compartimento da estação
+        //por agora, criar e retornar a ecomenda com estado CREATED gerado no model
+        return parcel;
+    }
 }
