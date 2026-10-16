@@ -14,7 +14,7 @@ public class ParcelTest {
 
     @BeforeEach 
     void setup() {
-        parcel = new Parcel ("TEST12345", "example@example.com", "XL");
+        parcel = new Parcel ("TEST12345", "example@example.com", "L");
     }
 
     @Test 
