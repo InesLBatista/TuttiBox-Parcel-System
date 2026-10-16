@@ -18,7 +18,7 @@ class ParcelServiceTest {
     private Parcel parcel;
     
     @BeforeEach 
-    void setup() {
+    void setUp() {
         hardwarePortMock = Mockito.mock(HardwarePort.class);
         parcelService = new ParcelService(hardwarePortMock);
         parcel = new Parcel("TEST999", "user@example.com", "S");
