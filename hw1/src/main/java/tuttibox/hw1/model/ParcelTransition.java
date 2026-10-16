@@ -10,7 +10,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -18,7 +17,6 @@ import lombok.NoArgsConstructor;
 @Table (name = "parcel_transitions")
 @Data
 @NoArgsConstructor
-@AllArgsConstructor
 public class ParcelTransition {
     @Id 
     @GeneratedValue (strategy = GenerationType.IDENTITY)
