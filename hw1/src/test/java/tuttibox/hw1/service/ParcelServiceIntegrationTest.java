@@ -49,7 +49,7 @@ class ParcelServiceIntegrationTest {
         .isInstanceOf(HardwareException.class)
         .hasMessageContaining("hardware failure");
 
-        //garantia de como hardware falhou, a ecomenda deve manter o seu estado CREATED
+        //garantia de como hardware falhou, a ecomenda deve manter o seu estado
         assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.CREATED);
     }
 }
