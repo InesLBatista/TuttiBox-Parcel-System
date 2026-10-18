@@ -1,25 +1,32 @@
 package tuttibox.hw1.controller;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 
 import tools.jackson.databind.ObjectMapper;
-
 import tuttibox.hw1.TestcontainersConfiguration;
 import tuttibox.hw1.dto.ParcelRequestDto;
-import org.springframework.http.MediaType;
-
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import tuttibox.hw1.model.Compartment;
+import tuttibox.hw1.model.CompartmentSize;
+import tuttibox.hw1.model.Station;
+import tuttibox.hw1.repository.CompartmentRepository;
+import tuttibox.hw1.repository.StationRepository;
 
 @SpringBootTest 
 @AutoConfigureMockMvc 
+@Transactional
 @Import(TestcontainersConfiguration.class)
 public class ParcelControllerIntegrationTest {
     @Autowired 
@@ -28,8 +35,20 @@ public class ParcelControllerIntegrationTest {
     @Autowired 
     private ObjectMapper objectMapper;
 
+    @Autowired 
+    private StationRepository stationRepository;
+    @Autowired private CompartmentRepository compartmentRepository;
+
+    @BeforeEach
+    void setUp() {
+        compartmentRepository.deleteAll();
+        stationRepository.deleteAll();
+        Station st = stationRepository.save(new Station("STATION_01", "Estação Central", 40.63, -8.65));
+        compartmentRepository.save(new Compartment("C-M1", st, CompartmentSize.M));
+    }
+
     @Test 
-    @DisplayName ("parter can register a parcel via rest api and receive a tracking code")
+    @DisplayName("partner pode registar uma encomenda via rest api e receber um tracking code") 
     void testRegisterParcelApi() throws Exception {
         //prepara os dados enviados
         ParcelRequestDto requestDto = new ParcelRequestDto();

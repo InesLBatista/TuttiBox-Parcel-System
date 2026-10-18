@@ -2,6 +2,8 @@ package tuttibox.hw1.controller;
 
 import java.util.List;
 
+import jakarta.validation.Valid;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,13 +16,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 import tuttibox.hw1.dto.DropOffRequestDto;
 import tuttibox.hw1.dto.ParcelRequestDto;
+import tuttibox.hw1.dto.ParcelResponseDto;
 import tuttibox.hw1.dto.PickUpRequestDto;
 import tuttibox.hw1.model.Parcel;
 import tuttibox.hw1.model.ParcelTransition;
 import tuttibox.hw1.service.ParcelService;
 
 @RestController 
-@RequestMapping ("/api/parcels")
+@RequestMapping("/api/parcels")
 public class ParcelController {
     private final ParcelService parcelService;
 
@@ -28,46 +31,32 @@ public class ParcelController {
         this.parcelService=parcelService;
     }
 
-    @PostMapping 
-    public ResponseEntity<Parcel> registerParcel(@RequestBody ParcelRequestDto request) {
-        //tracking code único
-        String trackingCode = "TRK-" + java.util.UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-        Parcel parcel = new Parcel(trackingCode, request.getRecipientContact(), request.getCompartmentSize());
-        //registo da ecomenda e reserva do seu compartimento
-        Parcel createdParcel = parcelService.registerParcelForStation(parcel, request.getStationId(), request.getCompartmentSize());
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdParcel);
+    //registo da encomenda
+    @PostMapping
+    public ResponseEntity<ParcelResponseDto> registerParcel(@Valid @RequestBody ParcelRequestDto request) {
+        ParcelResponseDto response = parcelService.registerParcel(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PostMapping("/{trackingCode}/dropoff")
-    public ResponseEntity<Parcel> courierDropOff(@PathVariable String trackingCode, @jakarta.validation.Valid @RequestBody DropOffRequestDto request) {
-        Parcel updatedParcel = parcelService.processCourierDropOff(trackingCode,
-                request.getStationId(),
-                request.getCompartmentId(),
-                request.getCourierId()
-        );
-        
-        return ResponseEntity.ok(updatedParcel);
+    public ResponseEntity<Parcel> courierDropOff(@PathVariable String trackingCode, @Valid @RequestBody DropOffRequestDto request) {
+        Parcel updated = parcelService.processCourierDropOff(
+            trackingCode, request.getStationId(), request.getCompartmentId(), request.getCourierId());
+        return ResponseEntity.ok(updated);
     }
 
     @PostMapping("/{trackingCode}/pickup")
-    public ResponseEntity<Parcel> recipientPickUp(@PathVariable String trackingCode, @jakarta.validation.Valid @RequestBody PickUpRequestDto request) {
-        Parcel updatedParcel = parcelService.processRecipientPickUp(
-                trackingCode,
-                request.getStationId(),
-                request.getCompartmentId(),
-                request.getRecipientId()
-        );
-
-        return ResponseEntity.ok(updatedParcel);
+    public ResponseEntity<Parcel> recipientPickUp(@PathVariable String trackingCode, @Valid @RequestBody PickUpRequestDto request) {
+        Parcel updated = parcelService.processRecipientPickUp(
+            trackingCode, request.getStationId(), request.getCompartmentId(), request.getRecipientId());
+        return ResponseEntity.ok(updated);
     }
 
     @GetMapping("/{trackingCode}/history")
     public ResponseEntity<List<ParcelTransition>> getParcelHistory(@PathVariable String trackingCode) {
-        List<ParcelTransition> history = parcelService.getParcelHistory(trackingCode);
-        return ResponseEntity.ok(history);
+        return ResponseEntity.ok(parcelService.getParcelHistory(trackingCode));
     }
 
-    
     @PostMapping("/{trackingCode}/cancel")
     public ResponseEntity<Parcel> cancelParcel(@PathVariable String trackingCode, @RequestParam String actor) {
         return ResponseEntity.ok(parcelService.processParcelCancellation(trackingCode, actor));
