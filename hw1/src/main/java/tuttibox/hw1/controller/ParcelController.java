@@ -2,11 +2,13 @@ package tuttibox.hw1.controller;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import tuttibox.hw1.dto.DropOffRequestDto;
 import tuttibox.hw1.dto.ParcelRequestDto;
 import tuttibox.hw1.model.Parcel;
 import tuttibox.hw1.service.ParcelService;
@@ -28,5 +30,16 @@ public class ParcelController {
         //registo da ecomenda e reserva do seu compartimento
         Parcel createdParcel = parcelService.registerParcelForStation(parcel, request.getStationId(), request.getCompartmentSize());
         return ResponseEntity.status(HttpStatus.CREATED).body(createdParcel);
+    }
+
+    @PostMapping("/{trackingCode}/dropoff")
+    public ResponseEntity<Parcel> courierDropOff(@PathVariable String trackingCode, @RequestBody DropOffRequestDto request) {
+        Parcel updatedParcel = parcelService.processCourierDropOff(trackingCode,
+                request.getStationId(),
+                request.getCompartmentId(),
+                request.getCourierId()
+        );
+        
+        return ResponseEntity.ok(updatedParcel);
     }
 }

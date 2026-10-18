@@ -4,13 +4,16 @@ import org.springframework.stereotype.Service;
 
 import tuttibox.hw1.model.Parcel;
 import tuttibox.hw1.port.HardwarePort;
+import tuttibox.hw1.repository.ParcelRepository;
 
 @Service 
 public class ParcelService {
     private final HardwarePort hardwarePort;
+    private final ParcelRepository parcelRepository;
 
-    public ParcelService(HardwarePort hardwarePort) {
+    public ParcelService(HardwarePort hardwarePort, ParcelRepository parcelRepository) {
         this.hardwarePort=hardwarePort;
+        this.parcelRepository=parcelRepository;
     }
 
     public void dropOffParcel(Parcel parcel, String stationId, String compartmnentId, String courierActor) {
@@ -29,5 +32,17 @@ public class ParcelService {
         //validação da disponibilidade do compartimento da estação
         //por agora, criar e retornar a ecomenda com estado CREATED gerado no model
         return parcel;
+    }
+
+    public Parcel processCourierDropOff(String trackingCode, String stationId, String compartmentId, String courierId) {
+        //localização da ecomenda com tracking code na bd
+        Parcel parcel = parcelRepository.findByTrackingCode(trackingCode)
+            .orElseThrow(() -> new IllegalArgumentException("encomenda não foi encontrada: " + trackingCode));
+        //abertura do hardware
+        hardwarePort.openCompartment(stationId, compartmentId);
+        //atualizar estado
+        parcel.markAsReadyForPickup(courierId);
+        //atualização bd
+        return parcelRepository.save(parcel);
     }
 }

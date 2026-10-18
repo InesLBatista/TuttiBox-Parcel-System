@@ -11,16 +11,19 @@ import org.mockito.Mockito;
 import tuttibox.hw1.model.Parcel;
 import tuttibox.hw1.model.ParcelState;
 import tuttibox.hw1.port.HardwarePort;
+import tuttibox.hw1.repository.ParcelRepository;
 
 class ParcelServiceTest {
     private HardwarePort hardwarePortMock;
     private ParcelService parcelService;
     private Parcel parcel;
+    private ParcelRepository parcelRepositoryMock;
     
     @BeforeEach 
     void setUp() {
         hardwarePortMock = Mockito.mock(HardwarePort.class);
-        parcelService = new ParcelService(hardwarePortMock);
+        parcelRepositoryMock = Mockito.mock(ParcelRepository.class);
+        parcelService = new ParcelService(hardwarePortMock, parcelRepositoryMock);
         parcel = new Parcel("TEST999", "user@example.com", "S");
     }
 
