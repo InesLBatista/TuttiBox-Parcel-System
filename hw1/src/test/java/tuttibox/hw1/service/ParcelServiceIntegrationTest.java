@@ -8,13 +8,16 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 
+import tuttibox.hw1.TestcontainersConfiguration;
 import tuttibox.hw1.fake.InMemoryHardwareFake;
 import tuttibox.hw1.model.Parcel;
 import tuttibox.hw1.model.ParcelState;
 import tuttibox.hw1.port.HardwareException;
 
 @SpringBootTest 
+@Import(TestcontainersConfiguration.class)
 class ParcelServiceIntegrationTest {
     @Autowired 
     private ParcelService parcelService;

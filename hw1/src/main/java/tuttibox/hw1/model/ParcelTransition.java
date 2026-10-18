@@ -13,6 +13,8 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -36,6 +38,7 @@ public class ParcelTransition {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parcel_id")
+    @JsonBackReference
     private Parcel parcel;
 
     public ParcelTransition(Parcel parcel, ParcelState fromState, ParcelState toState, String actor) {

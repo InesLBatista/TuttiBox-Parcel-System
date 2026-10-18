@@ -6,11 +6,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
-import org.testcontainers.shaded.com.fasterxml.jackson.databind.ObjectMapper;
 
+import tools.jackson.databind.ObjectMapper;
+import tuttibox.hw1.TestcontainersConfiguration;
 import tuttibox.hw1.dto.DropOffRequestDto;
 import tuttibox.hw1.model.Parcel;
 import tuttibox.hw1.model.ParcelState;
@@ -24,6 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@Import(TestcontainersConfiguration.class)
 public class CourierDropOffIntegrationTest {
     @Autowired 
     private MockMvc mockMvc;

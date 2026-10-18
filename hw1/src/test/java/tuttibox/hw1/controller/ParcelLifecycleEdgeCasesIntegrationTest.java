@@ -6,9 +6,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import tuttibox.hw1.TestcontainersConfiguration;
 import tuttibox.hw1.model.Parcel;
 import tuttibox.hw1.model.ParcelState;
 import tuttibox.hw1.repository.ParcelRepository;
@@ -21,6 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@Import(TestcontainersConfiguration.class)
 class ParcelLifecycleEdgeCasesIntegrationTest {
     @Autowired
     private MockMvc mockMvc;

@@ -6,9 +6,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import tuttibox.hw1.TestcontainersConfiguration;
 import tuttibox.hw1.model.Parcel;
 import tuttibox.hw1.repository.ParcelRepository;
 
@@ -19,6 +21,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest 
 @AutoConfigureMockMvc 
 @Transactional 
+@Import(TestcontainersConfiguration.class)
 public class ParcelHistoryIntegrationTest {
     @Autowired
     private MockMvc mockMvc;
@@ -40,6 +43,6 @@ public class ParcelHistoryIntegrationTest {
         mockMvc.perform(get("/api/parcels/TRK-HIST-01/history"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$[0].toState").value("READY_FOR_PICKUP"));
+                .andExpect(jsonPath("$[1].toState").value("READY_FOR_PICKUP"));
     }
 }

@@ -12,6 +12,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import tuttibox.hw1.exception.InvalidTransitionException;
@@ -33,6 +34,7 @@ public class Parcel {
     private ParcelState currentState;
 
     @OneToMany (mappedBy = "parcel", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
     private List<ParcelTransition> transitions = new ArrayList<>();
 
     public Parcel(String trackingCode, String recepientContact, String compartmentSize) {
