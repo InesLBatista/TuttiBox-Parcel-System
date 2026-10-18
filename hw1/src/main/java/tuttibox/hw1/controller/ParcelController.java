@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import tuttibox.hw1.dto.DropOffRequestDto;
 import tuttibox.hw1.dto.ParcelRequestDto;
+import tuttibox.hw1.dto.PickUpRequestDto;
 import tuttibox.hw1.model.Parcel;
 import tuttibox.hw1.service.ParcelService;
 
@@ -40,6 +41,18 @@ public class ParcelController {
                 request.getCourierId()
         );
         
+        return ResponseEntity.ok(updatedParcel);
+    }
+
+    @PostMapping("/{trackingCode}/pickup")
+    public ResponseEntity<Parcel> recipientPickUp(@PathVariable String trackingCode, @RequestBody PickUpRequestDto request) {
+        Parcel updatedParcel = parcelService.processRecipientPickUp(
+                trackingCode,
+                request.getStationId(),
+                request.getCompartmentId(),
+                request.getRecipientId()
+        );
+
         return ResponseEntity.ok(updatedParcel);
     }
 }

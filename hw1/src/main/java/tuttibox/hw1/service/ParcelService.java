@@ -45,4 +45,14 @@ public class ParcelService {
         //atualização bd
         return parcelRepository.save(parcel);
     }
+
+    public Parcel processRecipientPickUp(String trackingCode, String stationId, String compartmentId, String recipientId) {
+        Parcel parcel = parcelRepository.findByTrackingCode(trackingCode)
+                .orElseThrow(() -> new IllegalArgumentException("encomenda não encontrada: " + trackingCode));
+
+        hardwarePort.openCompartment(stationId, compartmentId);
+        //transição na máquina de estados para PICKED_UP
+        parcel.pickUp(recipientId);
+        return parcelRepository.save(parcel);
+    }
 }
