@@ -64,4 +64,27 @@ public class ParcelService {
                 .orElseThrow(() -> new IllegalArgumentException("encomenda não foi encontrada: " + trackingCode));
         return parcel.getTransitions();
     }
+
+
+
+    public Parcel processParcelExpiration(String trackingCode, String actor) {
+        Parcel parcel = parcelRepository.findByTrackingCode(trackingCode)
+                .orElseThrow(() -> new IllegalArgumentException("encomenda não encontrada: " + trackingCode));
+        parcel.expire(actor);
+        return parcelRepository.save(parcel);
+    }
+
+    public Parcel processParcelReturn(String trackingCode, String actor) {
+        Parcel parcel = parcelRepository.findByTrackingCode(trackingCode)
+                .orElseThrow(() -> new IllegalArgumentException("encomenda não encontrada: " + trackingCode));
+        parcel.returnParcel(actor);
+        return parcelRepository.save(parcel);
+    }
+
+    public Parcel processParcelCancellation(String trackingCode, String actor) {
+        Parcel parcel = parcelRepository.findByTrackingCode(trackingCode)
+                .orElseThrow(() -> new IllegalArgumentException("encomenda não encontrada: " + trackingCode));
+        parcel.cancel(actor);
+        return parcelRepository.save(parcel);
+    }
 }

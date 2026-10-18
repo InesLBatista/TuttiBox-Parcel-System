@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import tuttibox.hw1.dto.DropOffRequestDto;
@@ -64,5 +65,21 @@ public class ParcelController {
     public ResponseEntity<List<ParcelTransition>> getParcelHistory(@PathVariable String trackingCode) {
         List<ParcelTransition> history = parcelService.getParcelHistory(trackingCode);
         return ResponseEntity.ok(history);
+    }
+
+    
+    @PostMapping("/{trackingCode}/cancel")
+    public ResponseEntity<Parcel> cancelParcel(@PathVariable String trackingCode, @RequestParam String actor) {
+        return ResponseEntity.ok(parcelService.processParcelCancellation(trackingCode, actor));
+    }
+
+    @PostMapping("/{trackingCode}/expire")
+    public ResponseEntity<Parcel> expireParcel(@PathVariable String trackingCode, @RequestParam String actor) {
+        return ResponseEntity.ok(parcelService.processParcelExpiration(trackingCode, actor));
+    }
+
+    @PostMapping("/{trackingCode}/return")
+    public ResponseEntity<Parcel> returnParcel(@PathVariable String trackingCode, @RequestParam String actor) {
+        return ResponseEntity.ok(parcelService.processParcelReturn(trackingCode, actor));
     }
 }
