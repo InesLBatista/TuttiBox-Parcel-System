@@ -1,8 +1,11 @@
 package tuttibox.hw1.service;
 
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 
 import tuttibox.hw1.model.Parcel;
+import tuttibox.hw1.model.ParcelTransition;
 import tuttibox.hw1.port.HardwarePort;
 import tuttibox.hw1.repository.ParcelRepository;
 
@@ -54,5 +57,11 @@ public class ParcelService {
         //transição na máquina de estados para PICKED_UP
         parcel.pickUp(recipientId);
         return parcelRepository.save(parcel);
+    }
+
+    public List<ParcelTransition> getParcelHistory(String trackingCode) {
+        Parcel parcel = parcelRepository.findByTrackingCode(trackingCode)
+                .orElseThrow(() -> new IllegalArgumentException("encomenda não foi encontrada: " + trackingCode));
+        return parcel.getTransitions();
     }
 }

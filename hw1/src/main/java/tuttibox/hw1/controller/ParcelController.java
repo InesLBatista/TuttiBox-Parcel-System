@@ -1,7 +1,10 @@
 package tuttibox.hw1.controller;
 
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -12,6 +15,7 @@ import tuttibox.hw1.dto.DropOffRequestDto;
 import tuttibox.hw1.dto.ParcelRequestDto;
 import tuttibox.hw1.dto.PickUpRequestDto;
 import tuttibox.hw1.model.Parcel;
+import tuttibox.hw1.model.ParcelTransition;
 import tuttibox.hw1.service.ParcelService;
 
 @RestController 
@@ -54,5 +58,11 @@ public class ParcelController {
         );
 
         return ResponseEntity.ok(updatedParcel);
+    }
+
+    @GetMapping("/{trackingCode}/history")
+    public ResponseEntity<List<ParcelTransition>> getParcelHistory(@PathVariable String trackingCode) {
+        List<ParcelTransition> history = parcelService.getParcelHistory(trackingCode);
+        return ResponseEntity.ok(history);
     }
 }

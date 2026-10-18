@@ -32,8 +32,8 @@ public class Parcel {
     @Enumerated (EnumType.STRING)
     private ParcelState currentState;
 
-    @OneToMany (cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ParcelTransition> history = new ArrayList<>();
+    @OneToMany (mappedBy = "parcel", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ParcelTransition> transitions = new ArrayList<>();
 
     public Parcel(String trackingCode, String recepientContact, String compartmentSize) {
         this.trackingCode=trackingCode;
@@ -41,7 +41,7 @@ public class Parcel {
         this.compartmentSize=compartmentSize;
         this.currentState=ParcelState.CREATED;
 
-        this.history.add(new ParcelTransition(null, ParcelState.CREATED, "PARTNER"));
+        this.transitions.add(new ParcelTransition(this, null, ParcelState.CREATED, "PARTNER"));
     }
 
     public void markAsReadyForPickup(String actor) {
@@ -80,8 +80,8 @@ public class Parcel {
     }
 
     private void transitionTo(ParcelState newState, String actor) {
-        ParcelTransition transition = new ParcelTransition(this.currentState, newState, actor);
-        this.history.add(transition);
+        ParcelTransition transition = new ParcelTransition(this, this.currentState, newState, actor);
+        this.transitions.add(transition);
         this.currentState=newState;
     }
 }

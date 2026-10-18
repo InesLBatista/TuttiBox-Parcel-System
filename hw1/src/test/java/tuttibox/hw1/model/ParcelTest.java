@@ -22,9 +22,9 @@ public class ParcelTest {
     void testInitialState() {
         assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.CREATED);
         assertThat(parcel.getTrackingCode()).isEqualTo("TEST12345");
-        assertThat(parcel.getHistory()).hasSize(1);
-        assertThat(parcel.getHistory().get(0).getToState()).isEqualTo(ParcelState.CREATED);
-        assertThat(parcel.getHistory().get(0).getActor()).isEqualTo("PARTNER");
+        assertThat(parcel.getTransitions()).hasSize(1);
+        assertThat(parcel.getTransitions().get(0).getToState()).isEqualTo(ParcelState.CREATED);
+        assertThat(parcel.getTransitions().get(0).getActor()).isEqualTo("PARTNER");
     }
 
     @Test 
@@ -33,9 +33,9 @@ public class ParcelTest {
         parcel.markAsReadyForPickup("COURIER");
 
         assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.READY_FOR_PICKUP);
-        assertThat(parcel.getHistory()).hasSize(2);
+        assertThat(parcel.getTransitions()).hasSize(2);
         
-        ParcelTransition lastTransition = parcel.getHistory().get(1);
+        ParcelTransition lastTransition = parcel.getTransitions().get(1);
         assertThat(lastTransition.getFromState()).isEqualTo(ParcelState.CREATED);
         assertThat(lastTransition.getToState()).isEqualTo(ParcelState.READY_FOR_PICKUP);
         assertThat(lastTransition.getActor()).isEqualTo("COURIER");
@@ -48,8 +48,8 @@ public class ParcelTest {
         parcel.cancel("PARTNER");
 
         assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.CANCELLED);
-        assertThat(parcel.getHistory()).hasSize(2);
-        assertThat(parcel.getHistory().get(1).getToState()).isEqualTo(ParcelState.CANCELLED);
+        assertThat(parcel.getTransitions()).hasSize(2);
+        assertThat(parcel.getTransitions().get(1).getToState()).isEqualTo(ParcelState.CANCELLED);
     }
 
     @Test
@@ -70,7 +70,7 @@ public class ParcelTest {
 
         parcel.pickUp("RECIPIENT");
         assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.PICKED_UP);
-        assertThat(parcel.getHistory()).hasSize(3);
+        assertThat(parcel.getTransitions()).hasSize(3);
     }
 
     @Test
@@ -83,6 +83,6 @@ public class ParcelTest {
 
         parcel.returnParcel("OPERATOR");
         assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.RETURNED);
-        assertThat(parcel.getHistory()).hasSize(4);
+        assertThat(parcel.getTransitions()).hasSize(4);
     }
 }
