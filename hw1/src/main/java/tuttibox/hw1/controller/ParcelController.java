@@ -39,7 +39,7 @@ public class ParcelController {
     }
 
     @PostMapping("/{trackingCode}/dropoff")
-    public ResponseEntity<Parcel> courierDropOff(@PathVariable String trackingCode, @RequestBody DropOffRequestDto request) {
+    public ResponseEntity<Parcel> courierDropOff(@PathVariable String trackingCode, @jakarta.validation.Valid @RequestBody DropOffRequestDto request) {
         Parcel updatedParcel = parcelService.processCourierDropOff(trackingCode,
                 request.getStationId(),
                 request.getCompartmentId(),
@@ -50,7 +50,7 @@ public class ParcelController {
     }
 
     @PostMapping("/{trackingCode}/pickup")
-    public ResponseEntity<Parcel> recipientPickUp(@PathVariable String trackingCode, @RequestBody PickUpRequestDto request) {
+    public ResponseEntity<Parcel> recipientPickUp(@PathVariable String trackingCode, @jakarta.validation.Valid @RequestBody PickUpRequestDto request) {
         Parcel updatedParcel = parcelService.processRecipientPickUp(
                 trackingCode,
                 request.getStationId(),

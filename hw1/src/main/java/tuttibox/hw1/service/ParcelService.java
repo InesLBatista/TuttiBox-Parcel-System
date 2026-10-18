@@ -41,6 +41,25 @@ public class ParcelService {
         //localização da ecomenda com tracking code na bd
         Parcel parcel = parcelRepository.findByTrackingCode(trackingCode)
             .orElseThrow(() -> new IllegalArgumentException("encomenda não foi encontrada: " + trackingCode));
+
+        String parcelSize = parcel.getCompartmentSize().toUpperCase();
+        String compIdUpper = compartmentId.toUpperCase();
+
+        String compartmentSize;
+        if (compIdUpper.contains("_S") || compIdUpper.endsWith("S") || compIdUpper.contains("SMALL")) {
+            compartmentSize = "S";
+        } else if (compIdUpper.contains("_M") || compIdUpper.endsWith("M") || compIdUpper.contains("MEDIUM")) {
+            compartmentSize = "M";
+        } else if (compIdUpper.contains("_L") || compIdUpper.endsWith("L") || compIdUpper.contains("LARGE")) {
+            compartmentSize = "L";
+        } else {
+            throw new IllegalArgumentException("compartimento não especifica um tamanho válido: " + compartmentId);
+        }
+
+        if (!isSizeCompatible(parcelSize, compartmentSize)) {
+            throw new IllegalArgumentException("tamanho do compartimento " + compartmentSize + " é muito pequeno para o tamanho da encomenda " + parcelSize);
+        }
+
         //abertura do hardware
         hardwarePort.openCompartment(stationId, compartmentId);
         //atualizar estado
@@ -86,5 +105,19 @@ public class ParcelService {
                 .orElseThrow(() -> new IllegalArgumentException("encomenda não encontrada: " + trackingCode));
         parcel.cancel(actor);
         return parcelRepository.save(parcel);
+    }
+
+
+    private boolean isSizeCompatible(String parcelSize, String compartmentSize) {
+        if (parcelSize.equals("S")) {
+            return compartmentSize.equals("S") || compartmentSize.equals("M") || compartmentSize.equals("L");
+        }
+        if (parcelSize.equals("M")) {
+            return compartmentSize.equals("M") || compartmentSize.equals("L");
+        }
+        if (parcelSize.equals("L")) {
+            return compartmentSize.equals("L");
+        }
+        return false;
     }
 }
