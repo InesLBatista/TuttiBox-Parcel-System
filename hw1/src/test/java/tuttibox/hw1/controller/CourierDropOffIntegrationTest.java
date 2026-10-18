@@ -48,7 +48,7 @@ public class CourierDropOffIntegrationTest {
 
         DropOffRequestDto dropOffDto = new DropOffRequestDto();
         dropOffDto.setStationId("STATION_01");
-        dropOffDto.setCompartmentId("COMP_A1");
+        dropOffDto.setCompartmentId("COMP_M1");
         dropOffDto.setCourierId("COURIER_123");
 
         //execução do pedido post para endpoint de dropoff

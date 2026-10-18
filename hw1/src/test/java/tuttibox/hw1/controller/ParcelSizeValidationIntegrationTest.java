@@ -10,7 +10,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
-import org.testcontainers.utility.TestcontainersConfiguration;
+
+import tuttibox.hw1.TestcontainersConfiguration;
 
 import tools.jackson.databind.ObjectMapper;
 import tuttibox.hw1.dto.DropOffRequestDto;
@@ -53,7 +54,7 @@ public class ParcelSizeValidationIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(dropOffDto)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("tamanho do compartimento S é demasiado pequeno para a encomenda de tamanho L"));
+                .andExpect(jsonPath("$.message").value("tamanho do compartimento S é muito pequeno para o tamanho da encomenda L"));
     }
 
     @Test
@@ -64,14 +65,14 @@ public class ParcelSizeValidationIntegrationTest {
 
         DropOffRequestDto dropOffDto = new DropOffRequestDto();
         dropOffDto.setStationId("STATION_01");
-        dropOffDto.setCompartmentId("COMP_123"); //sem especificação de tamanho
+        dropOffDto.setCompartmentId("COMP_123"); 
         dropOffDto.setCourierId("COURIER_01");
 
         mockMvc.perform(post("/api/parcels/TRK-SIZE-02/dropoff")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(dropOffDto)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("o id do compartimento não especifica um tamanho válido"));
+                .andExpect(jsonPath("$.message").value("compartimento não especifica um tamanho válido: COMP_123"));
     }
 
     @Test

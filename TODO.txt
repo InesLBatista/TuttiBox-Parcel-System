@@ -1,1 +1,2 @@
 cenas a ainda a checkar: * testes de integração caso recipient/courier tente abrir porta e hardware tenha falha
+                        * JaCoco + OpenApi swagger + mvn clean test sempre 100

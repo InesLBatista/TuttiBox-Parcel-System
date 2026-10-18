@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
+import jakarta.persistence.EntityNotFoundException;
 import tuttibox.hw1.model.Parcel;
 import tuttibox.hw1.model.ParcelTransition;
 import tuttibox.hw1.port.HardwarePort;
@@ -40,7 +41,7 @@ public class ParcelService {
     public Parcel processCourierDropOff(String trackingCode, String stationId, String compartmentId, String courierId) {
         //localização da ecomenda com tracking code na bd
         Parcel parcel = parcelRepository.findByTrackingCode(trackingCode)
-            .orElseThrow(() -> new IllegalArgumentException("encomenda não foi encontrada: " + trackingCode));
+            .orElseThrow(() -> new EntityNotFoundException("encomenda não foi encontrada: " + trackingCode));
 
         String parcelSize = parcel.getCompartmentSize().toUpperCase();
         String compIdUpper = compartmentId.toUpperCase();
@@ -70,7 +71,7 @@ public class ParcelService {
 
     public Parcel processRecipientPickUp(String trackingCode, String stationId, String compartmentId, String recipientId) {
         Parcel parcel = parcelRepository.findByTrackingCode(trackingCode)
-                .orElseThrow(() -> new IllegalArgumentException("encomenda não encontrada: " + trackingCode));
+            .orElseThrow(() -> new EntityNotFoundException("encomenda não foi encontrada: " + trackingCode));
 
         hardwarePort.openCompartment(stationId, compartmentId);
         //transição na máquina de estados para PICKED_UP
@@ -80,7 +81,7 @@ public class ParcelService {
 
     public List<ParcelTransition> getParcelHistory(String trackingCode) {
         Parcel parcel = parcelRepository.findByTrackingCode(trackingCode)
-                .orElseThrow(() -> new IllegalArgumentException("encomenda não foi encontrada: " + trackingCode));
+            .orElseThrow(() -> new EntityNotFoundException("encomenda não foi encontrada: " + trackingCode));
         return parcel.getTransitions();
     }
 
@@ -88,21 +89,21 @@ public class ParcelService {
 
     public Parcel processParcelExpiration(String trackingCode, String actor) {
         Parcel parcel = parcelRepository.findByTrackingCode(trackingCode)
-                .orElseThrow(() -> new IllegalArgumentException("encomenda não encontrada: " + trackingCode));
+            .orElseThrow(() -> new EntityNotFoundException("encomenda não foi encontrada: " + trackingCode));
         parcel.expire(actor);
         return parcelRepository.save(parcel);
     }
 
     public Parcel processParcelReturn(String trackingCode, String actor) {
         Parcel parcel = parcelRepository.findByTrackingCode(trackingCode)
-                .orElseThrow(() -> new IllegalArgumentException("encomenda não encontrada: " + trackingCode));
+            .orElseThrow(() -> new EntityNotFoundException("encomenda não foi encontrada: " + trackingCode));
         parcel.returnParcel(actor);
         return parcelRepository.save(parcel);
     }
 
     public Parcel processParcelCancellation(String trackingCode, String actor) {
         Parcel parcel = parcelRepository.findByTrackingCode(trackingCode)
-                .orElseThrow(() -> new IllegalArgumentException("encomenda não encontrada: " + trackingCode));
+            .orElseThrow(() -> new EntityNotFoundException("encomenda não foi encontrada: " + trackingCode));
         parcel.cancel(actor);
         return parcelRepository.save(parcel);
     }
