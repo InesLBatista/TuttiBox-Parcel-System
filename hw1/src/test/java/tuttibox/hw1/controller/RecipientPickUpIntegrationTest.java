@@ -42,7 +42,7 @@ public class RecipientPickUpIntegrationTest {
     }
 
     @Test 
-    @DisplayName ("recipient can successfully pick up the parcel and transition state into PICKED_UP")
+    @DisplayName ("destinatário consegue fazer pickup da encomenda e transitar para PICKED_UP")
     void testRecipientPickUpApi() throws Exception {
         // Given: Insere uma encomenda no estado READY_FOR_PICKUP
         Parcel parcel = new Parcel("TRK-PICKUP-123", "client@example.com", "M");
@@ -65,5 +65,27 @@ public class RecipientPickUpIntegrationTest {
         // Validação na BD
         Parcel updatedParcel = parcelRepository.findByTrackingCode("TRK-PICKUP-123").orElseThrow();
         assertThat(updatedParcel.getCurrentState()).isEqualTo(ParcelState.PICKED_UP);
+    }
+
+    @Test
+    @DisplayName("pickup de parcel que ainda não está pronta devolve 400 e não altera o estado")
+    void testPickUpBeforeReadyReturnsBadRequest() throws Exception {
+        Parcel parcel = new Parcel("TRK-PICKUP-456", "client@example.com", "S");
+        parcelRepository.save(parcel);
+
+        PickUpRequestDto pickUpDto = new PickUpRequestDto();
+        pickUpDto.setStationId("STATION_01");
+        pickUpDto.setCompartmentId("COMP_A1");
+        pickUpDto.setRecipientId("CLIENT_123");
+
+        mockMvc.perform(post("/api/parcels/TRK-PICKUP-456/pickup")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(pickUpDto)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").exists());
+
+        Parcel unchanged = parcelRepository.findByTrackingCode("TRK-PICKUP-456").orElseThrow();
+        assertThat(unchanged.getCurrentState()).isEqualTo(ParcelState.CREATED);
     }
 }

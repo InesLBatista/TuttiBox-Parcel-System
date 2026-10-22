@@ -41,7 +41,7 @@ public class CourierDropOffIntegrationTest {
     }
 
     @Test 
-    @DisplayName ("courier can successfully drop off a parcel and transition into state READY_FOR_PICKUP")
+    @DisplayName ("courier consegue fazer dropoff de uma encomenda e transitar para READY_FOR_PICKUP")
     void testCourierDropOffApi() throws Exception {
         Parcel parcel = new Parcel("TRK-TEST123", "client@example.com", "M");
         parcelRepository.save(parcel);
@@ -62,5 +62,20 @@ public class CourierDropOffIntegrationTest {
         //estado deve mudar também na bd
         Parcel updatedParcel = parcelRepository.findByTrackingCode("TRK-TEST123").orElseThrow();
         assertThat(updatedParcel.getCurrentState()).isEqualTo(ParcelState.READY_FOR_PICKUP);
+    }
+
+    @Test
+    @DisplayName("dropoff de encomenda inexistente devolve 404")
+    void testDropOffUnknownParcelReturnsNotFound() throws Exception {
+        DropOffRequestDto dropOffDto = new DropOffRequestDto();
+        dropOffDto.setStationId("STATION_01");
+        dropOffDto.setCompartmentId("COMP_M1");
+        dropOffDto.setCourierId("COURIER_123");
+
+        mockMvc.perform(post("/api/parcels/TRK-DOES-NOT-EXIST/dropoff")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(dropOffDto)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404));
     }
 }

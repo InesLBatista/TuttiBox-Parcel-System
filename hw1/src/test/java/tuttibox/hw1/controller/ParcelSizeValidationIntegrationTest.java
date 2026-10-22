@@ -40,7 +40,7 @@ public class ParcelSizeValidationIntegrationTest {
     }
 
     @Test 
-    @DisplayName ("should reject drop off when compartment size is too small for the parcel")
+    @DisplayName ("deve rejeitar o dropoff quando o compartimento é demasiado pequeno para a encomenda")
     void testCompartmentTooSmallReturnsBadRequest() throws Exception {
         Parcel parcel = new Parcel("TRK-SIZE-01", "client@example.com", "L");
         parcelRepository.save(parcel);
@@ -58,7 +58,7 @@ public class ParcelSizeValidationIntegrationTest {
     }
 
     @Test
-    @DisplayName("should reject drop off when compartment id does not specify a valid size")
+    @DisplayName("deve rejeitar o dropoff quando o id do compartimento não especifica um tamanho válido")
     void testInvalidCompartmentIdFormatReturnsBadRequest() throws Exception {
         Parcel parcel = new Parcel("TRK-SIZE-02", "client@example.com", "M");
         parcelRepository.save(parcel);
@@ -76,7 +76,7 @@ public class ParcelSizeValidationIntegrationTest {
     }
 
     @Test
-    @DisplayName("should allow drop off when compartment size is compatible")
+    @DisplayName("deve permitir o dropoff quando o tamanho do compartimento é compatível")
     void testCompatibleSizeSInMRectsSuccess() throws Exception {
         Parcel parcel = new Parcel("TRK-SIZE-03", "client@example.com", "S");
         parcelRepository.save(parcel);

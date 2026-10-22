@@ -23,7 +23,7 @@ class LockerSearchServiceTest {
     }
 
     @Test
-    @DisplayName("should return coordinates for a valid registered address")
+    @DisplayName("deve devolver coordenadas para uma morada registada válida")
     void testFindCoordinatesSuccess() {
         Optional<Coordinates> coords = lockerSearchService.findNearestStations("Anadia");
         assertThat(coords).isPresent();
@@ -32,14 +32,14 @@ class LockerSearchServiceTest {
     }
 
     @Test
-    @DisplayName("should return empty when address is not found")
+    @DisplayName("deve devolver vazio quando a morada não é encontrada")
     void testAddressNotFound() {
         Optional<Coordinates> coords = lockerSearchService.findNearestStations("morada inexistente");
         assertThat(coords).isEmpty();
     }
 
     @Test
-    @DisplayName("should handle geocoding service unavailability")
+    @DisplayName("deve lidar com a indisponibilidade do serviço de geocoding")
     void testGeocodingServiceUnavailable() {
         geocodingFake.setSimulateUnavailable(true);
         assertThatThrownBy(() -> lockerSearchService.findNearestStations("Anadia"))

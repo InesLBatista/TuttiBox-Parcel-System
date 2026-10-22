@@ -34,7 +34,7 @@ public class ParcelHistoryIntegrationTest {
     }
 
     @Test
-    @DisplayName("should retrieve parcel state transition history successfully")
+    @DisplayName("deve obter com sucesso o histórico de transições de estado da encomenda")
     void testGetParcelHistory() throws Exception {
         Parcel parcel = new Parcel("TRK-HIST-01", "user@example.com", "S");
         parcel.markAsReadyForPickup("COURIER_01");

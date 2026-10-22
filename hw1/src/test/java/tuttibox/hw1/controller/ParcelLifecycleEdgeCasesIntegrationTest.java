@@ -36,7 +36,7 @@ class ParcelLifecycleEdgeCasesIntegrationTest {
     }
 
     @Test
-    @DisplayName("partner can cancel a parcel while in CREATED state")
+    @DisplayName("partner pode cancelar uma encomenda no estado CREATED")
     void testCancelParcel() throws Exception {
         Parcel parcel = new Parcel("TRK-CANCEL-01", "client@example.com", "S");
         parcelRepository.save(parcel);
@@ -51,7 +51,7 @@ class ParcelLifecycleEdgeCasesIntegrationTest {
     }
 
     @Test
-    @DisplayName("parcel can expire and then be returned to partner")
+    @DisplayName("encomenda pode expirar e depois ser devolvida ao partner")
     void testExpireAndReturnParcel() throws Exception {
         Parcel parcel = new Parcel("TRK-EXPIRE-01", "client@example.com", "L");
         parcel.markAsReadyForPickup("COURIER_01");

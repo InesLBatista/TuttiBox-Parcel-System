@@ -18,7 +18,7 @@ public class ParcelTest {
     }
 
     @Test 
-    @DisplayName ("inicial state should be created with a history record")
+    @DisplayName ("estado inicial deve ser CREATED com um registo de histórico")
     void testInitialState() {
         assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.CREATED);
         assertThat(parcel.getTrackingCode()).isEqualTo("TEST12345");
@@ -28,7 +28,7 @@ public class ParcelTest {
     }
 
     @Test 
-    @DisplayName ("transition from CREATED to READY_TO_PICKUP by courier should succed")
+    @DisplayName ("transição de CREATED para READY_FOR_PICKUP pelo courier deve ser bem-sucedida")
     void testSuccessfulDropOff() {
         parcel.markAsReadyForPickup("COURIER");
 
@@ -43,7 +43,7 @@ public class ParcelTest {
     }
 
     @Test 
-    @DisplayName ("transition from CREATED to CANCELLED by partner should succed")
+    @DisplayName ("transição de CREATED para CANCELLED pelo partner deve ser bem-sucedida")
     void testSuccessfulCancellation() {
         parcel.cancel("PARTNER");
 
@@ -53,7 +53,7 @@ public class ParcelTest {
     }
 
     @Test
-    @DisplayName("attempting to pick up an item in CREATED state should throw InvalidTransitionException")
+    @DisplayName("tentar fazer pickup no estado CREATED deve lançar InvalidTransitionException")
     void testInvalidPickupFromCreated() {
         assertThatThrownBy(() -> parcel.pickUp("RECIPIENT"))
                 .isInstanceOf(InvalidTransitionException.class);
@@ -63,7 +63,7 @@ public class ParcelTest {
     }
 
     @Test
-    @DisplayName("complete lifecycle")
+    @DisplayName("ciclo de vida completo")
     void testCompleteSuccessfulLifecycle() {
         parcel.markAsReadyForPickup("COURIER");
         assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.READY_FOR_PICKUP);
@@ -74,7 +74,7 @@ public class ParcelTest {
     }
 
     @Test
-    @DisplayName("complete expiration lifecycle")
+    @DisplayName("ciclo de vida completo de expiração")
     void testCompleteExpirationLifecycle() {
         parcel.markAsReadyForPickup("COURIER");
         
@@ -84,5 +84,55 @@ public class ParcelTest {
         parcel.returnParcel("OPERATOR");
         assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.RETURNED);
         assertThat(parcel.getTransitions()).hasSize(4);
+    }
+
+    @Test
+    @DisplayName("não é possível marcar como pronta para recolha uma encomenda que já está pronta")
+    void testInvalidMarkAsReadyForPickupFromReady() {
+        parcel.markAsReadyForPickup("COURIER");
+
+        assertThatThrownBy(() -> parcel.markAsReadyForPickup("COURIER_2"))
+                .isInstanceOf(InvalidTransitionException.class)
+                .hasMessageContaining("READY_FOR_PICKUP");
+
+        assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.READY_FOR_PICKUP);
+        assertThat(parcel.getTransitions()).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("não é possível cancelar uma encomenda depois de sair do estado CREATED")
+    void testInvalidCancellationAfterDropOff() {
+        parcel.markAsReadyForPickup("COURIER");
+
+        assertThatThrownBy(() -> parcel.cancel("PARTNER"))
+                .isInstanceOf(InvalidTransitionException.class)
+                .hasMessageContaining("CREATED");
+
+        assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.READY_FOR_PICKUP);
+        assertThat(parcel.getTransitions()).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("não é possível expirar uma encomenda que não está pronta para recolha")
+    void testInvalidExpirationFromCreated() {
+        assertThatThrownBy(() -> parcel.expire("SYSTEM"))
+                .isInstanceOf(InvalidTransitionException.class)
+                .hasMessageContaining("prontas para recolha");
+
+        assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.CREATED);
+        assertThat(parcel.getTransitions()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("não é possível devolver uma encomenda que não expirou")
+    void testInvalidReturnFromReadyForPickup() {
+        parcel.markAsReadyForPickup("COURIER");
+
+        assertThatThrownBy(() -> parcel.returnParcel("OPERATOR"))
+                .isInstanceOf(InvalidTransitionException.class)
+                .hasMessageContaining("expiraram");
+
+        assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.READY_FOR_PICKUP);
+        assertThat(parcel.getTransitions()).hasSize(2);
     }
 }
