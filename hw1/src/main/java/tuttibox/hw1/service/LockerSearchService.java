@@ -1,14 +1,22 @@
 package tuttibox.hw1.service;
 
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import tuttibox.hw1.dto.AvailabilityCounts;
 import tuttibox.hw1.dto.NearbyStationDto;
+import tuttibox.hw1.model.CompartmentSize;
+import tuttibox.hw1.model.CompartmentStatus;
 import tuttibox.hw1.model.Coordinates;
+import tuttibox.hw1.model.Station;
 import tuttibox.hw1.port.GeocodingPort;
+import tuttibox.hw1.repository.CompartmentRepository;
 import tuttibox.hw1.repository.StationRepository;
 
 @Service 
@@ -17,12 +25,19 @@ public class LockerSearchService {
 
     private final GeocodingPort geocodingPort;
     private final StationRepository stationRepository;
+    private final CompartmentRepository compartmentRepository;
 
-    public LockerSearchService(GeocodingPort geocodingPort, StationRepository stationRepository) {
+    public LockerSearchService(
+        GeocodingPort geocodingPort,
+        StationRepository stationRepository,
+        CompartmentRepository compartmentRepository
+    ) {
         this.geocodingPort = geocodingPort;
         this.stationRepository = stationRepository;
+        this.compartmentRepository = compartmentRepository;
     }
 
+    @Transactional(readOnly = true)
     public List<NearbyStationDto> findNearestStations(String address) {
         Optional<Coordinates> origin = geocodingPort.getCoordinates(address);
         if (origin.isEmpty()) {
@@ -30,13 +45,36 @@ public class LockerSearchService {
         }
 
         Coordinates from = origin.get();
-        return stationRepository.findAll().stream()
+        List<Station> stations = stationRepository.findAll();
+
+        Map<String, AvailabilityCounts> availability = availabilityByStation(stations);
+
+        return stations.stream()
             .map(station -> NearbyStationDto.from(
                 station,
-                distanceKm(from, new Coordinates(station.getLatitude(), station.getLongitude()))))
+                distanceKm(from, new Coordinates(station.getLatitude(), station.getLongitude())),
+                availability.getOrDefault(station.getCode(), AvailabilityCounts.empty())))
             .sorted(Comparator.comparingDouble(NearbyStationDto::distanceKm)
                 .thenComparing(NearbyStationDto::code))
             .toList();
+    }
+
+    private Map<String, AvailabilityCounts> availabilityByStation(List<Station> stations) {
+        if (stations.isEmpty()) {
+            return Map.of();
+        }
+
+        List<String> stationCodes = stations.stream().map(Station::getCode).toList();
+
+        Map<String, Map<CompartmentSize, Long>> countsByStation = new java.util.HashMap<>();
+        compartmentRepository.countByStationCodesAndStatusGroupedBySize(stationCodes, CompartmentStatus.FREE)
+            .forEach(projection -> countsByStation
+                .computeIfAbsent(projection.getStationCode(), code -> new EnumMap<>(CompartmentSize.class))
+                .put(projection.getSize(), projection.getTotal()));
+
+        Map<String, AvailabilityCounts> result = new java.util.HashMap<>();
+        countsByStation.forEach((code, counts) -> result.put(code, AvailabilityCounts.of(counts)));
+        return result;
     }
 
     static double distanceKm(Coordinates from, Coordinates to) {

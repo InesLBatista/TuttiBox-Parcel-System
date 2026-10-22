@@ -15,20 +15,26 @@ import org.mockito.Mockito;
 
 import tuttibox.hw1.dto.NearbyStationDto;
 import tuttibox.hw1.fake.InMemoryGeocodingFake;
+import tuttibox.hw1.model.CompartmentSize;
+import tuttibox.hw1.model.CompartmentStatus;
 import tuttibox.hw1.model.Coordinates;
 import tuttibox.hw1.model.Station;
+import tuttibox.hw1.repository.CompartmentRepository;
 import tuttibox.hw1.repository.StationRepository;
 
 class LockerSearchServiceTest {
     private InMemoryGeocodingFake geocodingFake;
     private StationRepository stationRepositoryMock;
+    private CompartmentRepository compartmentRepositoryMock;
     private LockerSearchService lockerSearchService;
 
     @BeforeEach
     void setUp() {
         geocodingFake = new InMemoryGeocodingFake();
         stationRepositoryMock = Mockito.mock(StationRepository.class);
-        lockerSearchService = new LockerSearchService(geocodingFake, stationRepositoryMock);
+        compartmentRepositoryMock = Mockito.mock(CompartmentRepository.class);
+        lockerSearchService = new LockerSearchService(
+            geocodingFake, stationRepositoryMock, compartmentRepositoryMock);
     }
 
     @Test
@@ -59,6 +65,7 @@ class LockerSearchServiceTest {
         when(stationRepositoryMock.findAll()).thenReturn(List.of());
 
         assertThat(lockerSearchService.findNearestStations("Anadia")).isEmpty();
+        verifyNoInteractions(compartmentRepositoryMock);
     }
 
     @Test
@@ -66,6 +73,7 @@ class LockerSearchServiceTest {
     void testAddressNotFound() {
         assertThat(lockerSearchService.findNearestStations("morada inexistente")).isEmpty();
         verifyNoInteractions(stationRepositoryMock);
+        verifyNoInteractions(compartmentRepositoryMock);
     }
 
     @Test
@@ -78,6 +86,7 @@ class LockerSearchServiceTest {
             .hasMessageContaining("geocoding service is unavailable");
 
         verifyNoInteractions(stationRepositoryMock);
+        verifyNoInteractions(compartmentRepositoryMock);
     }
 
     @Test
@@ -105,5 +114,69 @@ class LockerSearchServiceTest {
 
         assertThat(LockerSearchService.distanceKm(from, to))
             .isCloseTo(LockerSearchService.distanceKm(to, from), within(0.000001));
+    }
+
+    @Test
+    @DisplayName("deve incluir o número de compartimentos livres por tamanho em cada estação")
+    void testAvailabilityPerSizePerStation() {
+        Station near = new Station("ST-NEAR", "Estação Perto", 40.6305, -8.6571);
+        Station far = new Station("ST-FAR", "Estação Longe", 38.7223, -9.1393);
+        when(stationRepositoryMock.findAll()).thenReturn(List.of(near, far));
+        when(compartmentRepositoryMock.countByStationCodesAndStatusGroupedBySize(
+                List.of("ST-NEAR", "ST-FAR"), CompartmentStatus.FREE))
+            .thenReturn(List.of(
+                projection("ST-NEAR", CompartmentSize.S, 2L),
+                projection("ST-NEAR", CompartmentSize.M, 1L),
+                projection("ST-FAR", CompartmentSize.L, 4L)));
+
+        List<NearbyStationDto> result = lockerSearchService.findNearestStations("Anadia");
+
+        NearbyStationDto nearDto = result.get(0);
+        assertThat(nearDto.code()).isEqualTo("ST-NEAR");
+        assertThat(nearDto.availableSmall()).isEqualTo(2L);
+        assertThat(nearDto.availableMedium()).isEqualTo(1L);
+        assertThat(nearDto.availableLarge()).isZero();
+
+        NearbyStationDto farDto = result.get(1);
+        assertThat(farDto.code()).isEqualTo("ST-FAR");
+        assertThat(farDto.availableSmall()).isZero();
+        assertThat(farDto.availableMedium()).isZero();
+        assertThat(farDto.availableLarge()).isEqualTo(4L);
+    }
+
+    @Test
+    @DisplayName("deve devolver zeros de disponibilidade quando a estação não tem compartimentos livres")
+    void testAvailabilityDefaultsToZero() {
+        Station station = new Station("ST-EMPTY", "Estação Vazia", 40.6305, -8.6571);
+        when(stationRepositoryMock.findAll()).thenReturn(List.of(station));
+        when(compartmentRepositoryMock.countByStationCodesAndStatusGroupedBySize(
+                List.of("ST-EMPTY"), CompartmentStatus.FREE))
+            .thenReturn(List.of());
+
+        NearbyStationDto dto = lockerSearchService.findNearestStations("Anadia").get(0);
+
+        assertThat(dto.availableSmall()).isZero();
+        assertThat(dto.availableMedium()).isZero();
+        assertThat(dto.availableLarge()).isZero();
+    }
+
+    private static tuttibox.hw1.repository.CompartmentCountProjection projection(
+        String stationCode, CompartmentSize size, long total) {
+        return new tuttibox.hw1.repository.CompartmentCountProjection() {
+            @Override
+            public String getStationCode() {
+                return stationCode;
+            }
+
+            @Override
+            public CompartmentSize getSize() {
+                return size;
+            }
+
+            @Override
+            public long getTotal() {
+                return total;
+            }
+        };
     }
 }

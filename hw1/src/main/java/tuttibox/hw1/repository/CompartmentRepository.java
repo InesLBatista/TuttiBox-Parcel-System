@@ -39,5 +39,17 @@ public interface CompartmentRepository extends JpaRepository<Compartment, Long> 
         @Param("sizes")       Collection<CompartmentSize> sizes
     );
 
+    @Query("""
+        SELECT c.station.code AS stationCode, c.size AS size, COUNT(c) AS total
+        FROM Compartment c
+        WHERE c.station.code IN :stationCodes
+          AND c.status = :status
+        GROUP BY c.station.code, c.size
+        """)
+    List<CompartmentCountProjection> countByStationCodesAndStatusGroupedBySize(
+        @Param("stationCodes") Collection<String>  stationCodes,
+        @Param("status")       CompartmentStatus   status
+    );
+
     Optional<Compartment> findByStationCodeAndCode(String stationCode, String compartmentCode);
 }
