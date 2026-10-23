@@ -20,6 +20,7 @@ import tuttibox.hw1.model.CompartmentStatus;
 import tuttibox.hw1.model.Parcel;
 import tuttibox.hw1.model.ParcelTransition;
 import tuttibox.hw1.port.HardwarePort;
+import tuttibox.hw1.port.NotificationPort;
 import tuttibox.hw1.repository.CompartmentRepository;
 import tuttibox.hw1.repository.ParcelRepository;
 import tuttibox.hw1.repository.StationRepository;
@@ -31,12 +32,14 @@ public class ParcelService {
     private final ParcelRepository parcelRepository;
     private final StationRepository stationRepository;
     private final CompartmentRepository compartmentRepository;
+    private final NotificationPort notificationPort;
 
-    public ParcelService(HardwarePort hardwarePort, ParcelRepository parcelRepository, StationRepository stationRepository, CompartmentRepository compartmentRepository) {
+    public ParcelService(HardwarePort hardwarePort, ParcelRepository parcelRepository, StationRepository stationRepository, CompartmentRepository compartmentRepository, NotificationPort notificationPort) {
         this.hardwarePort=hardwarePort;
         this.parcelRepository=parcelRepository;
         this.stationRepository=stationRepository; 
         this.compartmentRepository=compartmentRepository; 
+        this.notificationPort=notificationPort;
     }
 
 
@@ -112,7 +115,18 @@ public class ParcelService {
 
         hardwarePort.openCompartment(stationId, compartmentId);
         parcel.markAsReadyForPickup(courierId);
-        return parcelRepository.save(parcel);
+
+        String pickupCode = PickupCode.generate();
+        parcel.issuePickupCode(PickupCode.hash(pickupCode));
+
+        Parcel saved = parcelRepository.save(parcel);
+        notificationPort.sendPickupCode(
+            saved.getRecepientContact(), saved.getTrackingCode(), pickupCode);
+
+        log.info("código de recolha emitido: trackingCode={}, destinatário={}",
+            saved.getTrackingCode(), saved.getRecepientContact());
+
+        return saved;
     }
 
 

@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import tuttibox.hw1.TestcontainersConfiguration;
 import tuttibox.hw1.fake.InMemoryHardwareFake;
+import tuttibox.hw1.fake.InMemoryNotificationFake;
 import tuttibox.hw1.model.Parcel;
 import tuttibox.hw1.model.ParcelState;
 import tuttibox.hw1.port.HardwareException;
@@ -31,9 +32,13 @@ class ParcelServiceIntegrationTest {
     @Autowired 
     private ParcelRepository parcelRepository;
 
+    @Autowired
+    private InMemoryNotificationFake notificationFake;
+
     @BeforeEach
     void setUp() {
         hardwareFake.setInjectFailure(false);
+        notificationFake.clear();
         parcelRepository.deleteAll();
     }
 
@@ -46,7 +51,14 @@ class ParcelServiceIntegrationTest {
             saved.getTrackingCode(), "STATION_A", "COMP_M1", "COURIER_A");
 
         assertThat(result.getCurrentState()).isEqualTo(ParcelState.READY_FOR_PICKUP);
+        assertThat(result.getPickupCodeHash()).isNotBlank();
         assertThat(hardwareFake.isDoorClosed("STATION_A", "COMP_M1")).isFalse();
+
+        InMemoryNotificationFake.Notification notification = notificationFake
+            .findLastByTrackingCode("TRK-INT-01")
+            .orElseThrow();
+        assertThat(PickupCode.matches(notification.pickupCode(), result.getPickupCodeHash()))
+            .isTrue();
     }
 
     @Test 
@@ -64,5 +76,7 @@ class ParcelServiceIntegrationTest {
 
         Parcel unchanged = parcelRepository.findByTrackingCode("TRK-INT-02").orElseThrow();
         assertThat(unchanged.getCurrentState()).isEqualTo(ParcelState.CREATED);
+        assertThat(unchanged.getPickupCodeHash()).isNull();
+        assertThat(notificationFake.getNotifications()).isEmpty();
     }
 }

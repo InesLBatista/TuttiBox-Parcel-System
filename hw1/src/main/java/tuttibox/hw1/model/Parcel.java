@@ -38,6 +38,11 @@ public class Parcel {
     private String compartmentSize;
     private String partnerId;
 
+    //apenas o hash é guardado; o código em claro só existe na notificação ao destinatário
+    @JsonIgnore
+    @Column(name = "pickup_code_hash", length = 64)
+    private String pickupCodeHash;
+
     @Enumerated(EnumType.STRING)
     private ParcelState currentState;
 
@@ -74,6 +79,17 @@ public class Parcel {
                 "não é possível a transição de " + this.currentState + " para READY_FOR_PICKUP");
         }
         transitionTo(ParcelState.READY_FOR_PICKUP, actor);
+    }
+
+    public void issuePickupCode(String pickupCodeHash) {
+        if (this.currentState != ParcelState.READY_FOR_PICKUP) {
+            throw new InvalidTransitionException(
+                "o código de recolha só pode ser emitido depois do drop-off");
+        }
+        if (pickupCodeHash == null || pickupCodeHash.isBlank()) {
+            throw new IllegalArgumentException("o hash do código de recolha é obrigatório");
+        }
+        this.pickupCodeHash = pickupCodeHash;
     }
 
     public void cancel (String actor) {

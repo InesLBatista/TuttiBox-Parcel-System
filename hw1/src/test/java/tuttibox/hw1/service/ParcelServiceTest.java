@@ -19,6 +19,7 @@ import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 import tuttibox.hw1.dto.ParcelRequestDto;
@@ -34,6 +35,7 @@ import tuttibox.hw1.model.ParcelTransition;
 import tuttibox.hw1.model.Station;
 import tuttibox.hw1.port.HardwareException;
 import tuttibox.hw1.port.HardwarePort;
+import tuttibox.hw1.port.NotificationPort;
 import tuttibox.hw1.repository.CompartmentRepository;
 import tuttibox.hw1.repository.ParcelRepository;
 import tuttibox.hw1.repository.StationRepository;
@@ -43,6 +45,7 @@ class ParcelServiceTest {
     private ParcelRepository parcelRepositoryMock;
     private StationRepository stationRepositoryMock;
     private CompartmentRepository compartmentRepositoryMock;
+    private NotificationPort notificationPortMock;
     private ParcelService parcelService;
 
     @BeforeEach
@@ -51,9 +54,10 @@ class ParcelServiceTest {
         parcelRepositoryMock = Mockito.mock(ParcelRepository.class);
         stationRepositoryMock = Mockito.mock(StationRepository.class);
         compartmentRepositoryMock = Mockito.mock(CompartmentRepository.class);
+        notificationPortMock = Mockito.mock(NotificationPort.class);
         parcelService = new ParcelService(
             hardwarePortMock, parcelRepositoryMock,
-            stationRepositoryMock, compartmentRepositoryMock);
+            stationRepositoryMock, compartmentRepositoryMock, notificationPortMock);
     }
 
     @Test 
@@ -67,6 +71,12 @@ class ParcelServiceTest {
 
         verify(hardwarePortMock).openCompartment("STATION_01", "COMP_S1");
         assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.READY_FOR_PICKUP);
+        assertThat(parcel.getPickupCodeHash()).isNotBlank();
+
+        ArgumentCaptor<String> pickupCode = ArgumentCaptor.forClass(String.class);
+        verify(notificationPortMock).sendPickupCode(
+            eq("user@example.com"), eq("TEST999"), pickupCode.capture());
+        assertThat(PickupCode.matches(pickupCode.getValue(), parcel.getPickupCodeHash())).isTrue();
     }
 
     @Test 
@@ -81,6 +91,8 @@ class ParcelServiceTest {
          .hasMessageContaining("muito pequeno");
 
         assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.CREATED);
+        assertThat(parcel.getPickupCodeHash()).isNull();
+        verifyNoInteractions(notificationPortMock);
     }
 
     @Test

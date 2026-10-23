@@ -87,6 +87,19 @@ public class ParcelTest {
     }
 
     @Test
+    @DisplayName("código de recolha só pode ser emitido depois do drop-off")
+    void testIssuePickupCodeAfterDropOff() {
+        assertThatThrownBy(() -> parcel.issuePickupCode("hash"))
+            .isInstanceOf(InvalidTransitionException.class)
+            .hasMessageContaining("drop-off");
+
+        parcel.markAsReadyForPickup("COURIER");
+        parcel.issuePickupCode("hash");
+
+        assertThat(parcel.getPickupCodeHash()).isEqualTo("hash");
+    }
+
+    @Test
     @DisplayName("não é possível marcar como pronta para recolha uma encomenda que já está pronta")
     void testInvalidMarkAsReadyForPickupFromReady() {
         parcel.markAsReadyForPickup("COURIER");

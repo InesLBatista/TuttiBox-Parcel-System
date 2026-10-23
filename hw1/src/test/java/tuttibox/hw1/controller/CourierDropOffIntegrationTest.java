@@ -14,9 +14,11 @@ import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 import tuttibox.hw1.TestcontainersConfiguration;
 import tuttibox.hw1.dto.DropOffRequestDto;
+import tuttibox.hw1.fake.InMemoryNotificationFake;
 import tuttibox.hw1.model.Parcel;
 import tuttibox.hw1.model.ParcelState;
 import tuttibox.hw1.repository.ParcelRepository;
+import tuttibox.hw1.service.PickupCode;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -34,10 +36,13 @@ public class CourierDropOffIntegrationTest {
     private ObjectMapper objectMapper;
     @Autowired 
     private ParcelRepository parcelRepository;
+    @Autowired
+    private InMemoryNotificationFake notificationFake;
 
     @BeforeEach 
     void setUp() {
         parcelRepository.deleteAll();
+        notificationFake.clear();
     }
 
     @Test 
@@ -57,11 +62,21 @@ public class CourierDropOffIntegrationTest {
                 .content(objectMapper.writeValueAsString(dropOffDto)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.trackingCode").value("TRK-TEST123"))
-                .andExpect(jsonPath("$.currentState").value("READY_FOR_PICKUP"));
+                .andExpect(jsonPath("$.currentState").value("READY_FOR_PICKUP"))
+                .andExpect(jsonPath("$.pickupCodeHash").doesNotExist());
 
-        //estado deve mudar também na bd
+        //estado deve mudar também na bd e o código de recolha deve ser emitido
         Parcel updatedParcel = parcelRepository.findByTrackingCode("TRK-TEST123").orElseThrow();
         assertThat(updatedParcel.getCurrentState()).isEqualTo(ParcelState.READY_FOR_PICKUP);
+        assertThat(updatedParcel.getPickupCodeHash()).isNotBlank();
+
+        InMemoryNotificationFake.Notification notification = notificationFake
+            .findLastByTrackingCode("TRK-TEST123")
+            .orElseThrow();
+        assertThat(notification.recipientContact()).isEqualTo("client@example.com");
+        assertThat(notification.pickupCode()).matches("[A-HJ-NP-Z2-9]{8}");
+        assertThat(PickupCode.matches(notification.pickupCode(), updatedParcel.getPickupCodeHash()))
+            .isTrue();
     }
 
     @Test
