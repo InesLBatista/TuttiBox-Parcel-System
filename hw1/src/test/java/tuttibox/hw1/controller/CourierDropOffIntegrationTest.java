@@ -16,9 +16,15 @@ import tuttibox.hw1.TestcontainersConfiguration;
 import tuttibox.hw1.dto.DropOffRequestDto;
 import tuttibox.hw1.fake.InMemoryHardwareFake;
 import tuttibox.hw1.fake.InMemoryNotificationFake;
+import tuttibox.hw1.model.Compartment;
+import tuttibox.hw1.model.CompartmentSize;
+import tuttibox.hw1.model.CompartmentStatus;
 import tuttibox.hw1.model.Parcel;
 import tuttibox.hw1.model.ParcelState;
+import tuttibox.hw1.model.Station;
+import tuttibox.hw1.repository.CompartmentRepository;
 import tuttibox.hw1.repository.ParcelRepository;
+import tuttibox.hw1.repository.StationRepository;
 import tuttibox.hw1.service.PickupCode;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -41,6 +47,10 @@ public class CourierDropOffIntegrationTest {
     private InMemoryNotificationFake notificationFake;
     @Autowired
     private InMemoryHardwareFake hardwareFake;
+    @Autowired
+    private StationRepository stationRepository;
+    @Autowired
+    private CompartmentRepository compartmentRepository;
 
     @BeforeEach 
     void setUp() {
@@ -54,8 +64,7 @@ public class CourierDropOffIntegrationTest {
     @Test 
     @DisplayName ("dropoff abre a porta e a confirmação de fecho transita para READY_FOR_PICKUP")
     void testCourierDropOffApi() throws Exception {
-        Parcel parcel = new Parcel("TRK-TEST123", "client@example.com", "M");
-        parcelRepository.save(parcel);
+        saveParcelWithCompartment("TRK-TEST123", "client@example.com", "M", "COMP_M1", "STATION_01");
 
         //execução do pedido post para endpoint de dropoff
         mockMvc.perform(post("/api/parcels/TRK-TEST123/dropoff")
@@ -69,6 +78,8 @@ public class CourierDropOffIntegrationTest {
         Parcel openedParcel = parcelRepository.findByTrackingCode("TRK-TEST123").orElseThrow();
         assertThat(openedParcel.getCurrentState()).isEqualTo(ParcelState.CREATED);
         assertThat(openedParcel.getPickupCodeHash()).isNull();
+        assertThat(compartmentRepository.findByStationCodeAndCode("STATION_01", "COMP_M1")
+                .orElseThrow().getStatus()).isEqualTo(CompartmentStatus.RESERVED);
         assertThat(hardwareFake.isDoorClosed("STATION_01", "COMP_M1")).isFalse();
         assertThat(notificationFake.getNotifications()).isEmpty();
 
@@ -83,6 +94,8 @@ public class CourierDropOffIntegrationTest {
         Parcel updatedParcel = parcelRepository.findByTrackingCode("TRK-TEST123").orElseThrow();
         assertThat(updatedParcel.getCurrentState()).isEqualTo(ParcelState.READY_FOR_PICKUP);
         assertThat(updatedParcel.getPickupCodeHash()).isNotBlank();
+        assertThat(compartmentRepository.findByStationCodeAndCode("STATION_01", "COMP_M1")
+                .orElseThrow().getStatus()).isEqualTo(CompartmentStatus.OCCUPIED);
         assertThat(hardwareFake.isDoorClosed("STATION_01", "COMP_M1")).isTrue();
 
         InMemoryNotificationFake.Notification notification = notificationFake
@@ -95,9 +108,31 @@ public class CourierDropOffIntegrationTest {
     }
 
     @Test
+    @DisplayName("dropoff com compartimento diferente do atribuído devolve 400 e mantém RESERVED")
+    void testDropOffWithDifferentCompartmentReturnsBadRequest() throws Exception {
+        saveParcelWithCompartment("TRK-TEST126", "client@example.com", "M", "COMP_M1", "STATION_01");
+        DropOffRequestDto request = dropOffDto();
+        request.setCompartmentId("COMP_M2");
+
+        mockMvc.perform(post("/api/parcels/TRK-TEST126/dropoff")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString(
+                    "não corresponde ao compartimento atribuído")));
+
+        Parcel unchanged = parcelRepository.findByTrackingCode("TRK-TEST126").orElseThrow();
+        assertThat(unchanged.getCurrentState()).isEqualTo(ParcelState.CREATED);
+        assertThat(compartmentRepository.findByStationCodeAndCode("STATION_01", "COMP_M1")
+                .orElseThrow().getStatus()).isEqualTo(CompartmentStatus.RESERVED);
+        assertThat(notificationFake.getNotifications()).isEmpty();
+    }
+
+    @Test
     @DisplayName("confirmação com porta ainda aberta devolve 503 e mantém CREATED")
     void testConfirmationWithOpenDoorReturnsServiceUnavailable() throws Exception {
-        parcelRepository.save(new Parcel("TRK-TEST124", "client@example.com", "M"));
+        saveParcelWithCompartment("TRK-TEST124", "client@example.com", "M", "COMP_M1", "STATION_01");
 
         mockMvc.perform(post("/api/parcels/TRK-TEST124/dropoff")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -115,13 +150,15 @@ public class CourierDropOffIntegrationTest {
         Parcel unchanged = parcelRepository.findByTrackingCode("TRK-TEST124").orElseThrow();
         assertThat(unchanged.getCurrentState()).isEqualTo(ParcelState.CREATED);
         assertThat(unchanged.getPickupCodeHash()).isNull();
+        assertThat(compartmentRepository.findByStationCodeAndCode("STATION_01", "COMP_M1")
+                .orElseThrow().getStatus()).isEqualTo(CompartmentStatus.RESERVED);
         assertThat(notificationFake.getNotifications()).isEmpty();
     }
 
     @Test
     @DisplayName("falha de hardware na confirmação de fecho devolve 503 e mantém CREATED")
     void testConfirmationHardwareFailureReturnsServiceUnavailable() throws Exception {
-        parcelRepository.save(new Parcel("TRK-TEST125", "client@example.com", "M"));
+        saveParcelWithCompartment("TRK-TEST125", "client@example.com", "M", "COMP_M1", "STATION_01");
 
         mockMvc.perform(post("/api/parcels/TRK-TEST125/dropoff")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -139,6 +176,8 @@ public class CourierDropOffIntegrationTest {
         Parcel unchanged = parcelRepository.findByTrackingCode("TRK-TEST125").orElseThrow();
         assertThat(unchanged.getCurrentState()).isEqualTo(ParcelState.CREATED);
         assertThat(unchanged.getPickupCodeHash()).isNull();
+        assertThat(compartmentRepository.findByStationCodeAndCode("STATION_01", "COMP_M1")
+                .orElseThrow().getStatus()).isEqualTo(CompartmentStatus.RESERVED);
         assertThat(notificationFake.getNotifications()).isEmpty();
     }
 
@@ -160,6 +199,19 @@ public class CourierDropOffIntegrationTest {
                 .content(objectMapper.writeValueAsString(dropOffDto())))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404));
+    }
+
+    private Parcel saveParcelWithCompartment(
+            String trackingCode, String contact, String size, String compartmentCode, String stationCode) {
+        Station station = stationRepository.save(
+            new Station(stationCode, "Estação " + stationCode, 40.63, -8.65));
+        Compartment compartment = new Compartment(compartmentCode, station, CompartmentSize.valueOf(size));
+        compartment.reserve();
+        compartmentRepository.save(compartment);
+        Parcel parcel = new Parcel(trackingCode, contact, size);
+        parcel.setStation(station);
+        parcel.setAssignedCompartment(compartment);
+        return parcelRepository.save(parcel);
     }
 
     private DropOffRequestDto dropOffDto() {

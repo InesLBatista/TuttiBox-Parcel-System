@@ -15,8 +15,13 @@ import tools.jackson.databind.ObjectMapper;
 import tuttibox.hw1.TestcontainersConfiguration;
 import tuttibox.hw1.dto.DropOffRequestDto;
 import tuttibox.hw1.fake.InMemoryHardwareFake;
+import tuttibox.hw1.model.Compartment;
+import tuttibox.hw1.model.CompartmentSize;
 import tuttibox.hw1.model.Parcel;
+import tuttibox.hw1.model.Station;
+import tuttibox.hw1.repository.CompartmentRepository;
 import tuttibox.hw1.repository.ParcelRepository;
+import tuttibox.hw1.repository.StationRepository;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -36,6 +41,10 @@ class GlobalExceptionHandlerIntegrationTest {
     private ParcelRepository parcelRepository;
     @Autowired
     private InMemoryHardwareFake hardwareFake;
+    @Autowired
+    private StationRepository stationRepository;
+    @Autowired
+    private CompartmentRepository compartmentRepository;
 
     @BeforeEach
     void setUp() {
@@ -76,7 +85,14 @@ class GlobalExceptionHandlerIntegrationTest {
     @Test
     @DisplayName("deve devolver 503 quando o hardware falha durante o dropoff")
     void testHardwareFailureReturns503() throws Exception {
+        Station station = stationRepository.save(
+            new Station("STATION_01", "Estação Central", 40.63, -8.65));
+        Compartment compartment = new Compartment("COMP_S1", station, CompartmentSize.S);
+        compartment.reserve();
+        compartmentRepository.save(compartment);
         Parcel parcel = new Parcel("TRK-HW-01", "client@example.com", "S");
+        parcel.setStation(station);
+        parcel.setAssignedCompartment(compartment);
         parcelRepository.save(parcel);
         hardwareFake.setInjectFailure(true);
 

@@ -96,10 +96,12 @@ public class ParcelService {
         Parcel parcel = findByTrackingCode(trackingCode);
         ensureParcelCanBeDroppedOff(parcel);
         validateCompartmentSize(parcel, compartmentId);
+        Compartment compartment = resolveAssignedCompartment(parcel, stationId, compartmentId);
 
-        hardwarePort.openCompartment(stationId, compartmentId);
+        String assignedStation = compartment.getStation().getCode();
+        hardwarePort.openCompartment(assignedStation, compartment.getCode());
         log.info("compartimento aberto para drop-off: trackingCode={}, estação={}, compartimento={}, courier={}",
-            trackingCode, stationId, compartmentId, courierId);
+            trackingCode, assignedStation, compartment.getCode(), courierId);
 
         return parcel;
     }
@@ -109,23 +111,27 @@ public class ParcelService {
         Parcel parcel = findByTrackingCode(trackingCode);
         ensureParcelCanBeDroppedOff(parcel);
         validateCompartmentSize(parcel, compartmentId);
+        Compartment compartment = resolveAssignedCompartment(parcel, stationId, compartmentId);
 
-        hardwarePort.confirmDoorClosed(stationId, compartmentId);
-        if (!hardwarePort.isDoorClosed(stationId, compartmentId)) {
-            throw new HardwareException("a porta do compartimento " + compartmentId + " não foi confirmada como fechada");
+        String assignedStation = compartment.getStation().getCode();
+        hardwarePort.confirmDoorClosed(assignedStation, compartment.getCode());
+        if (!hardwarePort.isDoorClosed(assignedStation, compartment.getCode())) {
+            throw new HardwareException("a porta do compartimento " + compartment.getCode() + " não foi confirmada como fechada");
         }
 
+        compartment.occupy();
         parcel.markAsReadyForPickup(courierId);
 
         String pickupCode = PickupCode.generate();
         parcel.issuePickupCode(PickupCode.hash(pickupCode));
 
         Parcel saved = parcelRepository.save(parcel);
+        compartmentRepository.save(compartment);
         notificationPort.sendPickupCode(
             saved.getRecepientContact(), saved.getTrackingCode(), pickupCode);
 
-        log.info("fecho da porta confirmado e código de recolha emitido: trackingCode={}, estação={}, compartimento={}, destinatário={}",
-            saved.getTrackingCode(), stationId, compartmentId, saved.getRecepientContact());
+        log.info("fecho da porta confirmado, compartimento ocupado e código de recolha emitido: trackingCode={}, estação={}, compartimento={}, destinatário={}",
+            saved.getTrackingCode(), assignedStation, compartment.getCode(), saved.getRecepientContact());
 
         return saved;
     }
@@ -185,6 +191,22 @@ public class ParcelService {
         if (parcel.getCurrentState() != ParcelState.CREATED) {
             throw new InvalidTransitionException("não é possível fazer drop-off de uma encomenda em " + parcel.getCurrentState());
         }
+    }
+
+    private Compartment resolveAssignedCompartment(Parcel parcel, String stationId, String compartmentId) {
+        Compartment assigned = parcel.getAssignedCompartment();
+        if (assigned == null) {
+            throw new IllegalStateException(
+                "encomenda " + parcel.getTrackingCode() + " não tem compartimento atribuído");
+        }
+        String assignedStation = assigned.getStation().getCode();
+        if (!assignedStation.equals(stationId) || !assigned.getCode().equals(compartmentId)) {
+            throw new IllegalArgumentException(
+                "compartimento " + compartmentId + " da estação " + stationId
+                    + " não corresponde ao compartimento atribuído " + assigned.getCode()
+                    + " da estação " + assignedStation);
+        }
+        return assigned;
     }
 
     private void validateCompartmentSize(Parcel parcel, String compartmentId) {

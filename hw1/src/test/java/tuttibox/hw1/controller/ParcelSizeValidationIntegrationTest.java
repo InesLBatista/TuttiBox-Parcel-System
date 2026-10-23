@@ -15,8 +15,13 @@ import tuttibox.hw1.TestcontainersConfiguration;
 
 import tools.jackson.databind.ObjectMapper;
 import tuttibox.hw1.dto.DropOffRequestDto;
+import tuttibox.hw1.model.Compartment;
+import tuttibox.hw1.model.CompartmentSize;
 import tuttibox.hw1.model.Parcel;
+import tuttibox.hw1.model.Station;
+import tuttibox.hw1.repository.CompartmentRepository;
 import tuttibox.hw1.repository.ParcelRepository;
+import tuttibox.hw1.repository.StationRepository;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -33,6 +38,10 @@ public class ParcelSizeValidationIntegrationTest {
     private ObjectMapper objectMapper;
     @Autowired
     private ParcelRepository parcelRepository;
+    @Autowired
+    private StationRepository stationRepository;
+    @Autowired
+    private CompartmentRepository compartmentRepository;
 
     @BeforeEach
     void setUp() {
@@ -78,7 +87,14 @@ public class ParcelSizeValidationIntegrationTest {
     @Test 
     @DisplayName ("deve permitir abrir o compartimento quando o tamanho é compatível")
     void testCompatibleSizeSInMReturnsSuccess() throws Exception {
+        Station station = stationRepository.save(
+            new Station("STATION_01", "Estação Central", 40.63, -8.65));
+        Compartment compartment = new Compartment("COMP_M1", station, CompartmentSize.M);
+        compartment.reserve();
+        compartmentRepository.save(compartment);
         Parcel parcel = new Parcel("TRK-SIZE-03", "client@example.com", "S");
+        parcel.setStation(station);
+        parcel.setAssignedCompartment(compartment);
         parcelRepository.save(parcel);
 
         DropOffRequestDto dropOffDto = new DropOffRequestDto();

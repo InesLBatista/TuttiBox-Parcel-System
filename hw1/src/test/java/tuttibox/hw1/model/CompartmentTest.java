@@ -48,6 +48,26 @@ class CompartmentTest {
     }
 
     @Test
+    @DisplayName("occupy passa um compartimento RESERVED para OCCUPIED")
+    void testOccupy() {
+        compartment.reserve();
+        compartment.occupy();
+
+        assertThat(compartment.getStatus()).isEqualTo(CompartmentStatus.OCCUPIED);
+    }
+
+    @Test
+    @DisplayName("occupy falha quando o compartimento não está RESERVED")
+    void testOccupyWhenNotReserved() {
+        assertThatThrownBy(() -> compartment.occupy())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("C-M1")
+                .hasMessageContaining("FREE");
+
+        assertThat(compartment.getStatus()).isEqualTo(CompartmentStatus.FREE);
+    }
+
+    @Test
     @DisplayName("release devolve um compartimento RESERVED a FREE")
     void testReleaseReservedCompartment() {
         compartment.reserve();

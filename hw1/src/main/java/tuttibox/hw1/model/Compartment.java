@@ -39,6 +39,13 @@ public class Compartment {
         status = CompartmentStatus.RESERVED;
     }
 
+    public void occupy() {
+        if (status != CompartmentStatus.RESERVED) {
+            throw new IllegalStateException("compartimento " + code + " não está reservado (" + status + ")");
+        }
+        status = CompartmentStatus.OCCUPIED;
+    }
+
     public void release() {
         if (status == CompartmentStatus.OUT_OF_SERVICE) return; 
         status = CompartmentStatus.FREE;

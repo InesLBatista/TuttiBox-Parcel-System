@@ -63,7 +63,7 @@ class ParcelServiceTest {
     @Test 
     @DisplayName("dropoff abre hardware e mantém parcel em CREATED até confirmação de fecho") 
     void testDropOffOpensCompartment() {
-        Parcel parcel = new Parcel("TEST999", "user@example.com", "S");
+        Parcel parcel = parcelWithAssignedCompartment("TEST999", "user@example.com", "S", "COMP_S1", "STATION_01");
         when(parcelRepositoryMock.findByTrackingCode("TEST999")).thenReturn(Optional.of(parcel));
 
         Parcel result = parcelService.processCourierDropOff(
@@ -73,6 +73,7 @@ class ParcelServiceTest {
         verify(hardwarePortMock, never()).confirmDoorClosed(any(), any());
         assertThat(result.getCurrentState()).isEqualTo(ParcelState.CREATED);
         assertThat(result.getPickupCodeHash()).isNull();
+        assertThat(parcel.getAssignedCompartment().getStatus()).isEqualTo(CompartmentStatus.RESERVED);
         verify(parcelRepositoryMock, never()).save(any(Parcel.class));
         verifyNoInteractions(notificationPortMock);
     }
@@ -80,7 +81,8 @@ class ParcelServiceTest {
     @Test
     @DisplayName("confirmação de fecho transiciona para READY_FOR_PICKUP e emite código de recolha")
     void testConfirmDropOffWithClosedDoor() {
-        Parcel parcel = new Parcel("TEST995", "user@example.com", "S");
+        Parcel parcel = parcelWithAssignedCompartment("TEST995", "user@example.com", "S", "COMP_S1", "STATION_01");
+        Compartment compartment = parcel.getAssignedCompartment();
         when(parcelRepositoryMock.findByTrackingCode("TEST995")).thenReturn(Optional.of(parcel));
         when(parcelRepositoryMock.save(any(Parcel.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(hardwarePortMock.isDoorClosed("STATION_01", "COMP_S1")).thenReturn(true);
@@ -90,6 +92,8 @@ class ParcelServiceTest {
 
         verify(hardwarePortMock).confirmDoorClosed("STATION_01", "COMP_S1");
         verify(hardwarePortMock).isDoorClosed("STATION_01", "COMP_S1");
+        verify(compartmentRepositoryMock).save(compartment);
+        assertThat(compartment.getStatus()).isEqualTo(CompartmentStatus.OCCUPIED);
         assertThat(result.getCurrentState()).isEqualTo(ParcelState.READY_FOR_PICKUP);
         assertThat(result.getPickupCodeHash()).isNotBlank();
 
@@ -102,7 +106,7 @@ class ParcelServiceTest {
     @Test
     @DisplayName("confirmação com porta ainda aberta não transiciona nem emite código")
     void testConfirmDropOffWithOpenDoor() {
-        Parcel parcel = new Parcel("TEST994", "user@example.com", "S");
+        Parcel parcel = parcelWithAssignedCompartment("TEST994", "user@example.com", "S", "COMP_S1", "STATION_01");
         when(parcelRepositoryMock.findByTrackingCode("TEST994")).thenReturn(Optional.of(parcel));
         when(hardwarePortMock.isDoorClosed("STATION_01", "COMP_S1")).thenReturn(false);
 
@@ -115,14 +119,16 @@ class ParcelServiceTest {
         verify(hardwarePortMock).isDoorClosed("STATION_01", "COMP_S1");
         assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.CREATED);
         assertThat(parcel.getPickupCodeHash()).isNull();
+        assertThat(parcel.getAssignedCompartment().getStatus()).isEqualTo(CompartmentStatus.RESERVED);
         verify(parcelRepositoryMock, never()).save(any(Parcel.class));
+        verify(compartmentRepositoryMock, never()).save(any(Compartment.class));
         verifyNoInteractions(notificationPortMock);
     }
 
     @Test
     @DisplayName("falha ao confirmar fecho não transiciona nem emite código")
     void testConfirmDropOffHardwareCloseFailure() {
-        Parcel parcel = new Parcel("TEST993", "user@example.com", "S");
+        Parcel parcel = parcelWithAssignedCompartment("TEST993", "user@example.com", "S", "COMP_S1", "STATION_01");
         when(parcelRepositoryMock.findByTrackingCode("TEST993")).thenReturn(Optional.of(parcel));
         doThrow(new HardwareException("hardware failure: failed to confirm closing"))
             .when(hardwarePortMock).confirmDoorClosed("STATION_01", "COMP_S1");
@@ -135,7 +141,9 @@ class ParcelServiceTest {
         verify(hardwarePortMock, never()).isDoorClosed(any(), any());
         assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.CREATED);
         assertThat(parcel.getPickupCodeHash()).isNull();
+        assertThat(parcel.getAssignedCompartment().getStatus()).isEqualTo(CompartmentStatus.RESERVED);
         verify(parcelRepositoryMock, never()).save(any(Parcel.class));
+        verify(compartmentRepositoryMock, never()).save(any(Compartment.class));
         verifyNoInteractions(notificationPortMock);
     }
 
@@ -212,14 +220,78 @@ class ParcelServiceTest {
     @Test
     @DisplayName("dropoff infere tamanho a partir de identificadores com nome do tamanho")
     void testDropOffInfersNamedCompartmentSize() {
-        Parcel parcel = new Parcel("TEST997", "user@example.com", "M");
+        Parcel parcel = parcelWithAssignedCompartment("TEST997", "user@example.com", "M", "MEDIUM_1", "STATION_01");
         when(parcelRepositoryMock.findByTrackingCode("TEST997")).thenReturn(Optional.of(parcel));
 
         Parcel result = parcelService.processCourierDropOff(
             "TEST997", "STATION_01", "MEDIUM_1", "COURIER_01");
 
         assertThat(result.getCurrentState()).isEqualTo(ParcelState.CREATED);
+        assertThat(result.getAssignedCompartment().getStatus()).isEqualTo(CompartmentStatus.RESERVED);
         verify(hardwarePortMock).openCompartment("STATION_01", "MEDIUM_1");
+    }
+
+    @Test
+    @DisplayName("dropoff rejeita um compartimento diferente do atribuído")
+    void testDropOffRejectsDifferentCompartment() {
+        Parcel parcel = parcelWithAssignedCompartment("TEST988", "user@example.com", "S", "COMP_S1", "STATION_01");
+        when(parcelRepositoryMock.findByTrackingCode("TEST988")).thenReturn(Optional.of(parcel));
+
+        assertThatThrownBy(() ->
+            parcelService.processCourierDropOff("TEST988", "STATION_01", "COMP_S2", "COURIER_01")
+        ).isInstanceOf(IllegalArgumentException.class)
+         .hasMessageContaining("não corresponde ao compartimento atribuído");
+
+        verifyNoInteractions(hardwarePortMock);
+        verifyNoInteractions(notificationPortMock);
+    }
+
+    @Test
+    @DisplayName("confirmação rejeita um compartimento diferente do atribuído")
+    void testConfirmDropOffRejectsDifferentCompartment() {
+        Parcel parcel = parcelWithAssignedCompartment("TEST987", "user@example.com", "S", "COMP_S1", "STATION_01");
+        when(parcelRepositoryMock.findByTrackingCode("TEST987")).thenReturn(Optional.of(parcel));
+
+        assertThatThrownBy(() ->
+            parcelService.confirmCourierDropOff("TEST987", "STATION_01", "COMP_S2", "COURIER_01")
+        ).isInstanceOf(IllegalArgumentException.class)
+         .hasMessageContaining("não corresponde ao compartimento atribuído");
+
+        assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.CREATED);
+        assertThat(parcel.getAssignedCompartment().getStatus()).isEqualTo(CompartmentStatus.RESERVED);
+        verifyNoInteractions(hardwarePortMock);
+        verifyNoInteractions(notificationPortMock);
+    }
+
+    @Test
+    @DisplayName("dropoff de encomenda sem compartimento atribuído é rejeitado")
+    void testDropOffWithoutAssignedCompartment() {
+        Parcel parcel = new Parcel("TEST986", "user@example.com", "S");
+        when(parcelRepositoryMock.findByTrackingCode("TEST986")).thenReturn(Optional.of(parcel));
+
+        assertThatThrownBy(() ->
+            parcelService.processCourierDropOff("TEST986", "STATION_01", "COMP_S1", "COURIER_01")
+        ).isInstanceOf(IllegalStateException.class)
+         .hasMessageContaining("não tem compartimento atribuído");
+
+        verifyNoInteractions(hardwarePortMock);
+        verifyNoInteractions(notificationPortMock);
+    }
+
+    @Test
+    @DisplayName("confirmação sem compartimento atribuído é rejeitada")
+    void testConfirmDropOffWithoutAssignedCompartment() {
+        Parcel parcel = new Parcel("TEST985", "user@example.com", "S");
+        when(parcelRepositoryMock.findByTrackingCode("TEST985")).thenReturn(Optional.of(parcel));
+
+        assertThatThrownBy(() ->
+            parcelService.confirmCourierDropOff("TEST985", "STATION_01", "COMP_S1", "COURIER_01")
+        ).isInstanceOf(IllegalStateException.class)
+         .hasMessageContaining("não tem compartimento atribuído");
+
+        assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.CREATED);
+        verifyNoInteractions(hardwarePortMock);
+        verifyNoInteractions(notificationPortMock);
     }
 
     @Test
@@ -416,5 +488,16 @@ class ParcelServiceTest {
         request.setRecipientContact("destinatario@example.com");
         request.setPartnerId("PARTNER_01");
         return request;
+    }
+
+    private Parcel parcelWithAssignedCompartment(
+            String trackingCode, String contact, String size, String compartmentCode, String stationCode) {
+        Station station = new Station(stationCode, "Estação " + stationCode, 40.63, -8.65);
+        Compartment compartment = new Compartment(compartmentCode, station, CompartmentSize.valueOf(size));
+        compartment.reserve();
+        Parcel parcel = new Parcel(trackingCode, contact, size);
+        parcel.setStation(station);
+        parcel.setAssignedCompartment(compartment);
+        return parcel;
     }
 }
