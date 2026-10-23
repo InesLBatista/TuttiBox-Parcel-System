@@ -9,19 +9,19 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import tuttibox.hw1.dto.NearbyStationDto;
-import tuttibox.hw1.service.LockerSearchService;
+import tuttibox.hw1.service.StationSearchService;
 
 @RestController
 @RequestMapping("/api/stations")
 public class StationSearchController {
-    private final LockerSearchService lockerSearchService;
+    private final StationSearchService stationSearchService;
 
-    public StationSearchController(LockerSearchService lockerSearchService) {
-        this.lockerSearchService = lockerSearchService;
+    public StationSearchController(StationSearchService stationSearchService) {
+        this.stationSearchService = stationSearchService;
     }
 
     @GetMapping("/search")
     public ResponseEntity<List<NearbyStationDto>> searchByAddress(@RequestParam String address) {
-        return ResponseEntity.ok(lockerSearchService.findNearestStations(address));
+        return ResponseEntity.ok(stationSearchService.findNearestStations(address));
     }
 }

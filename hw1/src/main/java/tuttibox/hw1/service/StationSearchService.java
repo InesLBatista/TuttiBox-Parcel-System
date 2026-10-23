@@ -20,14 +20,14 @@ import tuttibox.hw1.repository.CompartmentRepository;
 import tuttibox.hw1.repository.StationRepository;
 
 @Service 
-public class LockerSearchService {
+public class StationSearchService {
     static final double EARTH_RADIUS_KM = 6371.0088;
 
     private final GeocodingPort geocodingPort;
     private final StationRepository stationRepository;
     private final CompartmentRepository compartmentRepository;
 
-    public LockerSearchService(
+    public StationSearchService(
         GeocodingPort geocodingPort,
         StationRepository stationRepository,
         CompartmentRepository compartmentRepository

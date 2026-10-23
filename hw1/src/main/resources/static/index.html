@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TuttiBox - Encontrar estação</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --primary: #0f4c81;
+            --primary-dark: #0b3a63;
+            --background: #f3f6f9;
+            --surface: #ffffff;
+            --border: #d6dee6;
+            --text: #1f2933;
+            --muted: #5c6b7a;
+            --error: #b3261e;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--background);
+            color: var(--text);
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            justify-content: center;
+            padding: 2rem 1rem;
+        }
+
+        main {
+            width: 100%;
+            max-width: 960px;
+        }
+
+        header {
+            margin-bottom: 1.5rem;
+        }
+
+        h1 {
+            margin: 0 0 0.5rem;
+            font-size: clamp(1.6rem, 4vw, 2.2rem);
+            color: var(--primary-dark);
+        }
+
+        header p {
+            margin: 0;
+            color: var(--muted);
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 8px 24px rgba(15, 76, 129, 0.08);
+        }
+
+        form {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        label {
+            width: 100%;
+            font-weight: 600;
+        }
+
+        input[type="text"] {
+            flex: 1 1 18rem;
+            padding: 0.75rem 0.9rem;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            font-size: 1rem;
+        }
+
+        input[type="text"]:focus {
+            outline: 2px solid var(--primary);
+            outline-offset: 1px;
+            border-color: var(--primary);
+        }
+
+        button {
+            padding: 0.75rem 1.4rem;
+            border: none;
+            border-radius: 0.5rem;
+            background: var(--primary);
+            color: #ffffff;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        button:hover:not(:disabled) {
+            background: var(--primary-dark);
+        }
+
+        button:disabled {
+            opacity: 0.65;
+            cursor: wait;
+        }
+
+        .hint {
+            margin: 0.6rem 0 0;
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        .message {
+            margin-top: 1.25rem;
+            padding: 0.9rem 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid var(--border);
+            background: #f8fafc;
+        }
+
+        .message.error {
+            border-color: #f2b8b5;
+            background: #fdecea;
+            color: var(--error);
+        }
+
+        #results {
+            margin-top: 1.5rem;
+        }
+
+        #results h2 {
+            margin: 0 0 0.75rem;
+            font-size: 1.2rem;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 640px;
+        }
+
+        th,
+        td {
+            padding: 0.7rem 0.85rem;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        thead th {
+            background: #e9f1f7;
+            color: var(--primary-dark);
+            font-size: 0.9rem;
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        tbody tr:hover {
+            background: #f7fafc;
+        }
+
+        .numeric {
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+        }
+
+        footer {
+            margin-top: 1rem;
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <header>
+            <h1>Encontrar estação TuttiBox</h1>
+            <p>Introduza uma morada para ver as estações mais próximas e os compartimentos livres por tamanho.</p>
+        </header>
+
+        <section class="card" aria-labelledby="search-title">
+            <h2 id="search-title" hidden>Pesquisar por morada</h2>
+            <form id="search-form">
+                <label for="address">Morada</label>
+                <input id="address" name="address" type="text" list="address-examples"
+                       placeholder="Ex.: Anadia" autocomplete="street-address" required>
+                <datalist id="address-examples">
+                    <option value="Anadia"></option>
+                    <option value="Aradas"></option>
+                </datalist>
+                <button id="submit-button" type="submit">Procurar estações</button>
+            </form>
+            <p class="hint">Os resultados são ordenados da estação mais próxima para a mais distante.</p>
+
+            <p id="status" class="message" role="status" aria-live="polite" hidden></p>
+        </section>
+
+        <section id="results" aria-labelledby="results-title" hidden>
+            <h2 id="results-title">Estações encontradas</h2>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th rowspan="2" scope="col">Estação</th>
+                            <th rowspan="2" scope="col">Código</th>
+                            <th rowspan="2" scope="col">Distância</th>
+                            <th colspan="3" scope="colgroup">Compartimentos livres</th>
+                        </tr>
+                        <tr>
+                            <th scope="col">S</th>
+                            <th scope="col">M</th>
+                            <th scope="col">L</th>
+                        </tr>
+                    </thead>
+                    <tbody id="results-body"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <footer>TuttiBox &mdash; rede de cacifos inteligentes</footer>
+    </main>
+
+    <script>
+        const form = document.getElementById("search-form");
+        const addressInput = document.getElementById("address");
+        const submitButton = document.getElementById("submit-button");
+        const statusMessage = document.getElementById("status");
+        const resultsSection = document.getElementById("results");
+        const resultsBody = document.getElementById("results-body");
+
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+
+            const address = addressInput.value.trim();
+            if (!address) {
+                showError("introduza uma morada para procurar estações.");
+                return;
+            }
+
+            setLoading(true);
+            hideResults();
+
+            try {
+                const response = await fetch(
+                    `/api/stations/search?address=${encodeURIComponent(address)}`);
+                const payload = await response.json().catch(() => null);
+
+                if (!response.ok) {
+                    throw new Error(errorMessage(response.status, payload));
+                }
+
+                renderStations(payload);
+            } catch (error) {
+                showError(error instanceof TypeError
+                    ? "não foi possível contactar o servidor. verifica a ligação e tente novamente."
+                    : error.message);
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        function renderStations(stations) {
+            resultsBody.replaceChildren();
+
+            if (!Array.isArray(stations) || stations.length === 0) {
+                showError("nenhuma estação foi encontrada para a morada indicada.", false);
+                return;
+            }
+
+            for (const station of stations) {
+                const row = document.createElement("tr");
+                appendCell(row, station.name);
+                appendCell(row, station.code);
+                appendCell(row, `${Number(station.distanceKm).toFixed(2)} km`, "numeric");
+                appendCell(row, station.availableSmall, "numeric");
+                appendCell(row, station.availableMedium, "numeric");
+                appendCell(row, station.availableLarge, "numeric");
+                resultsBody.appendChild(row);
+            }
+
+            statusMessage.hidden = true;
+            resultsSection.hidden = false;
+        }
+
+        function appendCell(row, value, className) {
+            const cell = document.createElement("td");
+            cell.textContent = value;
+            if (className) {
+                cell.className = className;
+            }
+            row.appendChild(cell);
+        }
+
+        function errorMessage(status, payload) {
+            if (status === 503) {
+                return "o serviço de geocodificação está indisponível ou atingiu o limite de utilização. tenta novamente mais tarde.";
+            }
+            if (status === 504) {
+                return "o serviço de geocodificação demorou demasiado a responder. tenta novamente.";
+            }
+            if (status === 502) {
+                return "o serviço de geocodificação devolveu uma resposta inválida. tenta novamente.";
+            }
+            return (payload && payload.message)
+                || `não foi possível obter os resultados (erro ${status}).`;
+        }
+
+        function showError(message, hide = true) {
+            statusMessage.textContent = message;
+            statusMessage.className = "message error";
+            statusMessage.hidden = false;
+            if (hide) {
+                hideResults();
+            }
+        }
+
+        function hideResults() {
+            resultsSection.hidden = true;
+            resultsBody.replaceChildren();
+        }
+
+        function setLoading(loading) {
+            submitButton.disabled = loading;
+            submitButton.textContent = loading ? "a procurar..." : "procurar estações";
+            form.setAttribute("aria-busy", String(loading));
+        }
+    </script>
+</body>
+</html>

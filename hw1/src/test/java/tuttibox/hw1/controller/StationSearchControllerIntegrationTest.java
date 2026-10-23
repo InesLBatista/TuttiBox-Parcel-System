@@ -1,6 +1,8 @@
 package tuttibox.hw1.controller;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -11,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -55,6 +58,16 @@ public class StationSearchControllerIntegrationTest {
         compartmentRepository.save(compartment("F-L1", far, CompartmentSize.L, CompartmentStatus.FREE));
         compartmentRepository.save(compartment("F-S1", far, CompartmentSize.S, CompartmentStatus.OCCUPIED));
         compartmentRepository.save(compartment("F-M1", far, CompartmentSize.M, CompartmentStatus.RESERVED));
+    }
+
+    @Test
+    @DisplayName("deve servir a página web do destinatário")
+    void testRecipientPageIsServed() throws Exception {
+        mockMvc.perform(get("/index.html"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_HTML))
+            .andExpect(content().string(containsString("TuttiBox - Encontrar")))
+            .andExpect(content().string(containsString("/api/stations/search")));
     }
 
     @Test

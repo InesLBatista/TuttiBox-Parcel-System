@@ -25,18 +25,18 @@ import tuttibox.hw1.port.GeocodingException;
 import tuttibox.hw1.repository.CompartmentRepository;
 import tuttibox.hw1.repository.StationRepository;
 
-class LockerSearchServiceTest {
+class StationSearchServiceTest {
     private InMemoryGeocodingFake geocodingFake;
     private StationRepository stationRepositoryMock;
     private CompartmentRepository compartmentRepositoryMock;
-    private LockerSearchService lockerSearchService;
+    private StationSearchService stationSearchService;
 
     @BeforeEach
     void setUp() {
         geocodingFake = new InMemoryGeocodingFake();
         stationRepositoryMock = Mockito.mock(StationRepository.class);
         compartmentRepositoryMock = Mockito.mock(CompartmentRepository.class);
-        lockerSearchService = new LockerSearchService(
+        stationSearchService = new StationSearchService(
             geocodingFake, stationRepositoryMock, compartmentRepositoryMock);
     }
 
@@ -48,7 +48,7 @@ class LockerSearchServiceTest {
         Station far = new Station("ST-FAR", "Estação Longe", 38.7223, -9.1393);
         when(stationRepositoryMock.findAll()).thenReturn(List.of(far, near, mid));
 
-        List<NearbyStationDto> result = lockerSearchService.findNearestStations("Anadia");
+        List<NearbyStationDto> result = stationSearchService.findNearestStations("Anadia");
 
         assertThat(result)
             .extracting(NearbyStationDto::code)
@@ -67,14 +67,14 @@ class LockerSearchServiceTest {
     void testNoStations() {
         when(stationRepositoryMock.findAll()).thenReturn(List.of());
 
-        assertThat(lockerSearchService.findNearestStations("Anadia")).isEmpty();
+        assertThat(stationSearchService.findNearestStations("Anadia")).isEmpty();
         verifyNoInteractions(compartmentRepositoryMock);
     }
 
     @Test
     @DisplayName("deve devolver lista vazia quando a morada não é encontrada")
     void testAddressNotFound() {
-        assertThat(lockerSearchService.findNearestStations("morada inexistente")).isEmpty();
+        assertThat(stationSearchService.findNearestStations("morada inexistente")).isEmpty();
         verifyNoInteractions(stationRepositoryMock);
         verifyNoInteractions(compartmentRepositoryMock);
     }
@@ -85,7 +85,7 @@ class LockerSearchServiceTest {
     void testGeocodingFailuresArePropagated(GeocodingException.Reason reason) {
         geocodingFake.setFailure(reason);
 
-        assertThatThrownBy(() -> lockerSearchService.findNearestStations("Anadia"))
+        assertThatThrownBy(() -> stationSearchService.findNearestStations("Anadia"))
             .isInstanceOf(GeocodingException.class)
             .satisfies(ex -> assertThat(((GeocodingException) ex).getReason()).isEqualTo(reason));
 
@@ -96,7 +96,7 @@ class LockerSearchServiceTest {
     @Test
     @DisplayName("distância de um grau de longitude no equador é aproximadamente 111,195 km")
     void testHaversineKnownDistance() {
-        double distance = LockerSearchService.distanceKm(
+        double distance = StationSearchService.distanceKm(
             new Coordinates(0, 0), new Coordinates(0, 1));
 
         assertThat(distance).isCloseTo(111.195, within(0.01));
@@ -107,7 +107,7 @@ class LockerSearchServiceTest {
     void testHaversineSamePoint() {
         Coordinates point = new Coordinates(40.6305, -8.6571);
 
-        assertThat(LockerSearchService.distanceKm(point, point)).isZero();
+        assertThat(StationSearchService.distanceKm(point, point)).isZero();
     }
 
     @Test
@@ -116,8 +116,8 @@ class LockerSearchServiceTest {
         Coordinates from = new Coordinates(40.6305, -8.6571);
         Coordinates to = new Coordinates(38.7223, -9.1393);
 
-        assertThat(LockerSearchService.distanceKm(from, to))
-            .isCloseTo(LockerSearchService.distanceKm(to, from), within(0.000001));
+        assertThat(StationSearchService.distanceKm(from, to))
+            .isCloseTo(StationSearchService.distanceKm(to, from), within(0.000001));
     }
 
     @Test
@@ -133,7 +133,7 @@ class LockerSearchServiceTest {
                 projection("ST-NEAR", CompartmentSize.M, 1L),
                 projection("ST-FAR", CompartmentSize.L, 4L)));
 
-        List<NearbyStationDto> result = lockerSearchService.findNearestStations("Anadia");
+        List<NearbyStationDto> result = stationSearchService.findNearestStations("Anadia");
 
         NearbyStationDto nearDto = result.get(0);
         assertThat(nearDto.code()).isEqualTo("ST-NEAR");
@@ -157,7 +157,7 @@ class LockerSearchServiceTest {
                 List.of("ST-EMPTY"), CompartmentStatus.FREE))
             .thenReturn(List.of());
 
-        NearbyStationDto dto = lockerSearchService.findNearestStations("Anadia").get(0);
+        NearbyStationDto dto = stationSearchService.findNearestStations("Anadia").get(0);
 
         assertThat(dto.availableSmall()).isZero();
         assertThat(dto.availableMedium()).isZero();
