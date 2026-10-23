@@ -55,4 +55,34 @@ class InMemoryHardwareFakeTest {
 
         assertThat(hardwareFake.isDoorClosed("ST-01", "C-1")).isFalse();
     }
+
+    @Test
+    @DisplayName("confirmar fecho marca a porta como fechada")
+    void testConfirmDoorClosed() {
+        hardwareFake.openCompartment("ST-01", "C-1");
+        hardwareFake.confirmDoorClosed("ST-01", "C-1");
+        assertThat(hardwareFake.isDoorClosed("ST-01", "C-1")).isTrue();
+    }
+
+    @Test
+    @DisplayName("falha injetada na confirmação de fecho lança HardwareException")
+    void testInjectedCloseFailure() {
+        hardwareFake.openCompartment("ST-01", "C-1");
+        hardwareFake.setInjectCloseFailure(true);
+        assertThatThrownBy(() -> hardwareFake.confirmDoorClosed("ST-01", "C-1"))
+                .isInstanceOf(HardwareException.class)
+                .hasMessageContaining("hardware failure")
+                .hasMessageContaining("C-1");
+
+        assertThat(hardwareFake.isDoorClosed("ST-01", "C-1")).isFalse();
+    }
+
+    @Test
+    @DisplayName("porta que não fecha permanece aberta após confirmação")
+    void testDoorNotClosedInjection() {
+        hardwareFake.openCompartment("ST-01", "C-1");
+        hardwareFake.setInjectDoorNotClosed(true);
+        hardwareFake.confirmDoorClosed("ST-01", "C-1");
+        assertThat(hardwareFake.isDoorClosed("ST-01", "C-1")).isFalse();
+    }
 }

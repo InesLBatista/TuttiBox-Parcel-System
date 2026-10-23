@@ -41,6 +41,8 @@ class GlobalExceptionHandlerIntegrationTest {
     void setUp() {
         parcelRepository.deleteAll();
         hardwareFake.setInjectFailure(false);
+        hardwareFake.setInjectCloseFailure(false);
+        hardwareFake.setInjectDoorNotClosed(false);
     }
 
     @Test
@@ -86,6 +88,8 @@ class GlobalExceptionHandlerIntegrationTest {
         mockMvc.perform(post("/api/parcels/TRK-HW-01/dropoff")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(dropOffDto)))
-                .andExpect(status().isServiceUnavailable());
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.status").value(503))
+                .andExpect(jsonPath("$.message").exists());
     }
 }

@@ -61,22 +61,123 @@ class ParcelServiceTest {
     }
 
     @Test 
-    @DisplayName("dropoff abre hardware e transiciona parcel para READY_FOR_PICKUP") 
-    void testSuccessfulDropOff() {
+    @DisplayName("dropoff abre hardware e mantém parcel em CREATED até confirmação de fecho") 
+    void testDropOffOpensCompartment() {
         Parcel parcel = new Parcel("TEST999", "user@example.com", "S");
         when(parcelRepositoryMock.findByTrackingCode("TEST999")).thenReturn(Optional.of(parcel));
-        when(parcelRepositoryMock.save(parcel)).thenReturn(parcel);
 
-        parcelService.processCourierDropOff("TEST999", "STATION_01", "COMP_S1", "COURIER_01");
+        Parcel result = parcelService.processCourierDropOff(
+            "TEST999", "STATION_01", "COMP_S1", "COURIER_01");
 
         verify(hardwarePortMock).openCompartment("STATION_01", "COMP_S1");
-        assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.READY_FOR_PICKUP);
-        assertThat(parcel.getPickupCodeHash()).isNotBlank();
+        verify(hardwarePortMock, never()).confirmDoorClosed(any(), any());
+        assertThat(result.getCurrentState()).isEqualTo(ParcelState.CREATED);
+        assertThat(result.getPickupCodeHash()).isNull();
+        verify(parcelRepositoryMock, never()).save(any(Parcel.class));
+        verifyNoInteractions(notificationPortMock);
+    }
+
+    @Test
+    @DisplayName("confirmação de fecho transiciona para READY_FOR_PICKUP e emite código de recolha")
+    void testConfirmDropOffWithClosedDoor() {
+        Parcel parcel = new Parcel("TEST995", "user@example.com", "S");
+        when(parcelRepositoryMock.findByTrackingCode("TEST995")).thenReturn(Optional.of(parcel));
+        when(parcelRepositoryMock.save(any(Parcel.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(hardwarePortMock.isDoorClosed("STATION_01", "COMP_S1")).thenReturn(true);
+
+        Parcel result = parcelService.confirmCourierDropOff(
+            "TEST995", "STATION_01", "COMP_S1", "COURIER_01");
+
+        verify(hardwarePortMock).confirmDoorClosed("STATION_01", "COMP_S1");
+        verify(hardwarePortMock).isDoorClosed("STATION_01", "COMP_S1");
+        assertThat(result.getCurrentState()).isEqualTo(ParcelState.READY_FOR_PICKUP);
+        assertThat(result.getPickupCodeHash()).isNotBlank();
 
         ArgumentCaptor<String> pickupCode = ArgumentCaptor.forClass(String.class);
         verify(notificationPortMock).sendPickupCode(
-            eq("user@example.com"), eq("TEST999"), pickupCode.capture());
-        assertThat(PickupCode.matches(pickupCode.getValue(), parcel.getPickupCodeHash())).isTrue();
+            eq("user@example.com"), eq("TEST995"), pickupCode.capture());
+        assertThat(PickupCode.matches(pickupCode.getValue(), result.getPickupCodeHash())).isTrue();
+    }
+
+    @Test
+    @DisplayName("confirmação com porta ainda aberta não transiciona nem emite código")
+    void testConfirmDropOffWithOpenDoor() {
+        Parcel parcel = new Parcel("TEST994", "user@example.com", "S");
+        when(parcelRepositoryMock.findByTrackingCode("TEST994")).thenReturn(Optional.of(parcel));
+        when(hardwarePortMock.isDoorClosed("STATION_01", "COMP_S1")).thenReturn(false);
+
+        assertThatThrownBy(() ->
+            parcelService.confirmCourierDropOff("TEST994", "STATION_01", "COMP_S1", "COURIER_01")
+        ).isInstanceOf(HardwareException.class)
+         .hasMessageContaining("não foi confirmada como fechada");
+
+        verify(hardwarePortMock).confirmDoorClosed("STATION_01", "COMP_S1");
+        verify(hardwarePortMock).isDoorClosed("STATION_01", "COMP_S1");
+        assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.CREATED);
+        assertThat(parcel.getPickupCodeHash()).isNull();
+        verify(parcelRepositoryMock, never()).save(any(Parcel.class));
+        verifyNoInteractions(notificationPortMock);
+    }
+
+    @Test
+    @DisplayName("falha ao confirmar fecho não transiciona nem emite código")
+    void testConfirmDropOffHardwareCloseFailure() {
+        Parcel parcel = new Parcel("TEST993", "user@example.com", "S");
+        when(parcelRepositoryMock.findByTrackingCode("TEST993")).thenReturn(Optional.of(parcel));
+        doThrow(new HardwareException("hardware failure: failed to confirm closing"))
+            .when(hardwarePortMock).confirmDoorClosed("STATION_01", "COMP_S1");
+
+        assertThatThrownBy(() ->
+            parcelService.confirmCourierDropOff("TEST993", "STATION_01", "COMP_S1", "COURIER_01")
+        ).isInstanceOf(HardwareException.class)
+         .hasMessageContaining("hardware failure");
+
+        verify(hardwarePortMock, never()).isDoorClosed(any(), any());
+        assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.CREATED);
+        assertThat(parcel.getPickupCodeHash()).isNull();
+        verify(parcelRepositoryMock, never()).save(any(Parcel.class));
+        verifyNoInteractions(notificationPortMock);
+    }
+
+    @Test
+    @DisplayName("dropoff de encomenda já pronta é rejeitado sem interagir com hardware")
+    void testDropOffAlreadyReadyParcelRejected() {
+        Parcel parcel = new Parcel("TEST992", "user@example.com", "S");
+        parcel.markAsReadyForPickup("COURIER_01");
+        when(parcelRepositoryMock.findByTrackingCode("TEST992")).thenReturn(Optional.of(parcel));
+
+        assertThatThrownBy(() ->
+            parcelService.processCourierDropOff("TEST992", "STATION_01", "COMP_S1", "COURIER_01")
+        ).isInstanceOf(InvalidTransitionException.class);
+
+        verifyNoInteractions(hardwarePortMock);
+    }
+
+    @Test
+    @DisplayName("confirmação de encomenda já pronta é rejeitada sem interagir com hardware")
+    void testConfirmAlreadyReadyParcelRejected() {
+        Parcel parcel = new Parcel("TEST991", "user@example.com", "S");
+        parcel.markAsReadyForPickup("COURIER_01");
+        when(parcelRepositoryMock.findByTrackingCode("TEST991")).thenReturn(Optional.of(parcel));
+
+        assertThatThrownBy(() ->
+            parcelService.confirmCourierDropOff("TEST991", "STATION_01", "COMP_S1", "COURIER_01")
+        ).isInstanceOf(InvalidTransitionException.class);
+
+        verifyNoInteractions(hardwarePortMock);
+    }
+
+    @Test
+    @DisplayName("confirmação de encomenda inexistente lança EntityNotFoundException")
+    void testConfirmDropOffUnknownParcel() {
+        when(parcelRepositoryMock.findByTrackingCode("MISSING")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() ->
+            parcelService.confirmCourierDropOff("MISSING", "STATION_01", "COMP_S1", "COURIER_01")
+        ).isInstanceOf(EntityNotFoundException.class)
+         .hasMessageContaining("MISSING");
+
+        verifyNoInteractions(hardwarePortMock);
     }
 
     @Test 
@@ -113,12 +214,11 @@ class ParcelServiceTest {
     void testDropOffInfersNamedCompartmentSize() {
         Parcel parcel = new Parcel("TEST997", "user@example.com", "M");
         when(parcelRepositoryMock.findByTrackingCode("TEST997")).thenReturn(Optional.of(parcel));
-        when(parcelRepositoryMock.save(any(Parcel.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Parcel result = parcelService.processCourierDropOff(
             "TEST997", "STATION_01", "MEDIUM_1", "COURIER_01");
 
-        assertThat(result.getCurrentState()).isEqualTo(ParcelState.READY_FOR_PICKUP);
+        assertThat(result.getCurrentState()).isEqualTo(ParcelState.CREATED);
         verify(hardwarePortMock).openCompartment("STATION_01", "MEDIUM_1");
     }
 

@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import jakarta.persistence.EntityNotFoundException;
 import tuttibox.hw1.port.GeocodingException;
+import tuttibox.hw1.port.HardwareException;
 
 @RestControllerAdvice 
 public class GlobalExceptionHandler {
@@ -27,6 +28,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InvalidTransitionException.class)
     public ResponseEntity<Object> handleInvalidTransition(InvalidTransitionException ex) {
         return buildErrorResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(HardwareException.class)
+    public ResponseEntity<Object> handleHardware(HardwareException ex) {
+        return buildErrorResponse(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
     }
 
     @ExceptionHandler(NoAvailableCompartmentException.class)

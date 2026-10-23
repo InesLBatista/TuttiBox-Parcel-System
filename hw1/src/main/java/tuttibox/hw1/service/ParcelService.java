@@ -13,12 +13,15 @@ import org.springframework.transaction.annotation.Transactional;
 import jakarta.persistence.EntityNotFoundException;
 import tuttibox.hw1.dto.ParcelRequestDto;
 import tuttibox.hw1.dto.ParcelResponseDto;
+import tuttibox.hw1.exception.InvalidTransitionException;
 import tuttibox.hw1.exception.NoAvailableCompartmentException;
 import tuttibox.hw1.model.Compartment;
 import tuttibox.hw1.model.CompartmentSize;
 import tuttibox.hw1.model.CompartmentStatus;
 import tuttibox.hw1.model.Parcel;
+import tuttibox.hw1.model.ParcelState;
 import tuttibox.hw1.model.ParcelTransition;
+import tuttibox.hw1.port.HardwareException;
 import tuttibox.hw1.port.HardwarePort;
 import tuttibox.hw1.port.NotificationPort;
 import tuttibox.hw1.repository.CompartmentRepository;
@@ -91,29 +94,27 @@ public class ParcelService {
     @Transactional
     public Parcel processCourierDropOff(String trackingCode, String stationId, String compartmentId, String courierId) {
         Parcel parcel = findByTrackingCode(trackingCode);
-
-        //inferir tamanho do compartimento pelo id
-        String compIdUpper = compartmentId.toUpperCase();
-
-        String compartmentSize;
-        if (compIdUpper.contains("_S") || compIdUpper.endsWith("S") || compIdUpper.contains("SMALL")) {
-            compartmentSize = "S";
-        } else if (compIdUpper.contains("_M") || compIdUpper.endsWith("M") || compIdUpper.contains("MEDIUM")) {
-            compartmentSize = "M";
-        } else if (compIdUpper.contains("_L") || compIdUpper.endsWith("L") || compIdUpper.contains("LARGE")) {
-            compartmentSize = "L";
-        } else {
-            throw new IllegalArgumentException(
-                "compartimento não especifica um tamanho válido: " + compartmentId);
-        }
-
-        String parcelSize = parcel.getCompartmentSize().toUpperCase();
-        if (!isSizeCompatible(parcelSize, compartmentSize)) {
-            throw new IllegalArgumentException(
-                "tamanho do compartimento " + compartmentSize + " é muito pequeno para o tamanho da encomenda " + parcelSize);
-        }
+        ensureParcelCanBeDroppedOff(parcel);
+        validateCompartmentSize(parcel, compartmentId);
 
         hardwarePort.openCompartment(stationId, compartmentId);
+        log.info("compartimento aberto para drop-off: trackingCode={}, estação={}, compartimento={}, courier={}",
+            trackingCode, stationId, compartmentId, courierId);
+
+        return parcel;
+    }
+
+    @Transactional
+    public Parcel confirmCourierDropOff(String trackingCode, String stationId, String compartmentId, String courierId) {
+        Parcel parcel = findByTrackingCode(trackingCode);
+        ensureParcelCanBeDroppedOff(parcel);
+        validateCompartmentSize(parcel, compartmentId);
+
+        hardwarePort.confirmDoorClosed(stationId, compartmentId);
+        if (!hardwarePort.isDoorClosed(stationId, compartmentId)) {
+            throw new HardwareException("a porta do compartimento " + compartmentId + " não foi confirmada como fechada");
+        }
+
         parcel.markAsReadyForPickup(courierId);
 
         String pickupCode = PickupCode.generate();
@@ -123,8 +124,8 @@ public class ParcelService {
         notificationPort.sendPickupCode(
             saved.getRecepientContact(), saved.getTrackingCode(), pickupCode);
 
-        log.info("código de recolha emitido: trackingCode={}, destinatário={}",
-            saved.getTrackingCode(), saved.getRecepientContact());
+        log.info("fecho da porta confirmado e código de recolha emitido: trackingCode={}, estação={}, compartimento={}, destinatário={}",
+            saved.getTrackingCode(), stationId, compartmentId, saved.getRecepientContact());
 
         return saved;
     }
@@ -176,10 +177,37 @@ public class ParcelService {
 
     private Parcel findByTrackingCode(String trackingCode) { 
         return parcelRepository.findByTrackingCode(trackingCode) 
-            .orElseThrow(() -> new EntityNotFoundException( 
-                "encomenda não foi encontrada: " + trackingCode));
+            .orElseThrow(() -> new EntityNotFoundException("encomenda não foi encontrada: " + trackingCode));
     }
 
+
+    private void ensureParcelCanBeDroppedOff(Parcel parcel) {
+        if (parcel.getCurrentState() != ParcelState.CREATED) {
+            throw new InvalidTransitionException("não é possível fazer drop-off de uma encomenda em " + parcel.getCurrentState());
+        }
+    }
+
+    private void validateCompartmentSize(Parcel parcel, String compartmentId) {
+        String compartmentSize = inferCompartmentSize(compartmentId);
+        String parcelSize = parcel.getCompartmentSize().toUpperCase();
+        if (!isSizeCompatible(parcelSize, compartmentSize)) {
+            throw new IllegalArgumentException("tamanho do compartimento " + compartmentSize + " é muito pequeno para o tamanho da encomenda " + parcelSize);
+        }
+    }
+
+    private String inferCompartmentSize(String compartmentId) {
+        String compIdUpper = compartmentId.toUpperCase();
+        if (compIdUpper.contains("_S") || compIdUpper.endsWith("S") || compIdUpper.contains("SMALL")) {
+            return "S";
+        }
+        if (compIdUpper.contains("_M") || compIdUpper.endsWith("M") || compIdUpper.contains("MEDIUM")) {
+            return "M";
+        }
+        if (compIdUpper.contains("_L") || compIdUpper.endsWith("L") || compIdUpper.contains("LARGE")) {
+            return "L";
+        }
+        throw new IllegalArgumentException("compartimento não especifica um tamanho válido: " + compartmentId);
+    }
 
     private boolean isSizeCompatible(String parcelSize, String compartmentSize) {
         if (parcelSize.equals("S")) return true;

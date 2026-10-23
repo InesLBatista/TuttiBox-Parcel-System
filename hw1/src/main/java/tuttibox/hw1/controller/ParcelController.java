@@ -45,6 +45,13 @@ public class ParcelController {
         return ResponseEntity.ok(updated);
     }
 
+    @PostMapping("/{trackingCode}/dropoff/confirm")
+    public ResponseEntity<Parcel> courierConfirmDropOff(@PathVariable String trackingCode, @Valid @RequestBody DropOffRequestDto request) {
+        Parcel updated = parcelService.confirmCourierDropOff(
+            trackingCode, request.getStationId(), request.getCompartmentId(), request.getCourierId());
+        return ResponseEntity.ok(updated);
+    }
+
     @PostMapping("/{trackingCode}/pickup")
     public ResponseEntity<Parcel> recipientPickUp(@PathVariable String trackingCode, @Valid @RequestBody PickUpRequestDto request) {
         Parcel updated = parcelService.processRecipientPickUp(

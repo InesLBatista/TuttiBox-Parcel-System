@@ -75,9 +75,9 @@ public class ParcelSizeValidationIntegrationTest {
                 .andExpect(jsonPath("$.message").value("compartimento não especifica um tamanho válido: COMP_123"));
     }
 
-    @Test
-    @DisplayName("deve permitir o dropoff quando o tamanho do compartimento é compatível")
-    void testCompatibleSizeSInMRectsSuccess() throws Exception {
+    @Test 
+    @DisplayName ("deve permitir abrir o compartimento quando o tamanho é compatível")
+    void testCompatibleSizeSInMReturnsSuccess() throws Exception {
         Parcel parcel = new Parcel("TRK-SIZE-03", "client@example.com", "S");
         parcelRepository.save(parcel);
 
@@ -90,6 +90,6 @@ public class ParcelSizeValidationIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(dropOffDto)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.currentState").value("READY_FOR_PICKUP"));
+                .andExpect(jsonPath("$.currentState").value("CREATED"));
     }
 }
