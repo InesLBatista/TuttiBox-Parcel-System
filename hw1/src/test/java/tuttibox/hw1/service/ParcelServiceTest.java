@@ -189,18 +189,21 @@ class ParcelServiceTest {
     }
 
     @Test 
-    @DisplayName("dropoff com compartimento demasiado pequeno lança IllegalArgumentException")
+    @DisplayName("dropoff usa o tamanho do compartimento atribuído e rejeita quando é demasiado pequeno")
     void testDropOffSizeMismatch() {
-        Parcel parcel = new Parcel("TEST998", "user@example.com", "L");
+        Parcel parcel = parcelWithAssignedCompartment(
+            "TEST998", "user@example.com", "L", "COMP_S1", "S", "STATION_01");
         when(parcelRepositoryMock.findByTrackingCode("TEST998")).thenReturn(Optional.of(parcel));
 
-        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+        assertThatThrownBy(() ->
             parcelService.processCourierDropOff("TEST998", "STATION_01", "COMP_S1", "COURIER_01")
         ).isInstanceOf(IllegalArgumentException.class)
          .hasMessageContaining("muito pequeno");
 
         assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.CREATED);
         assertThat(parcel.getPickupCodeHash()).isNull();
+        assertThat(parcel.getAssignedCompartment().getStatus()).isEqualTo(CompartmentStatus.RESERVED);
+        verifyNoInteractions(hardwarePortMock);
         verifyNoInteractions(notificationPortMock);
     }
 
@@ -218,17 +221,18 @@ class ParcelServiceTest {
     }
 
     @Test
-    @DisplayName("dropoff infere tamanho a partir de identificadores com nome do tamanho")
-    void testDropOffInfersNamedCompartmentSize() {
-        Parcel parcel = parcelWithAssignedCompartment("TEST997", "user@example.com", "M", "MEDIUM_1", "STATION_01");
+    @DisplayName("dropoff usa o tamanho do compartimento atribuído, não o texto do compartmentId")
+    void testDropOffUsesAssignedCompartmentSize() {
+        Parcel parcel = parcelWithAssignedCompartment(
+            "TEST997", "user@example.com", "S", "COMP_123", "M", "STATION_01");
         when(parcelRepositoryMock.findByTrackingCode("TEST997")).thenReturn(Optional.of(parcel));
 
         Parcel result = parcelService.processCourierDropOff(
-            "TEST997", "STATION_01", "MEDIUM_1", "COURIER_01");
+            "TEST997", "STATION_01", "COMP_123", "COURIER_01");
 
         assertThat(result.getCurrentState()).isEqualTo(ParcelState.CREATED);
         assertThat(result.getAssignedCompartment().getStatus()).isEqualTo(CompartmentStatus.RESERVED);
-        verify(hardwarePortMock).openCompartment("STATION_01", "MEDIUM_1");
+        verify(hardwarePortMock).openCompartment("STATION_01", "COMP_123");
     }
 
     @Test
@@ -491,11 +495,20 @@ class ParcelServiceTest {
     }
 
     private Parcel parcelWithAssignedCompartment(
-            String trackingCode, String contact, String size, String compartmentCode, String stationCode) {
+            String trackingCode, String contact, String parcelSize,
+            String compartmentCode, String stationCode) {
+        return parcelWithAssignedCompartment(
+            trackingCode, contact, parcelSize, compartmentCode, parcelSize, stationCode);
+    }
+
+    private Parcel parcelWithAssignedCompartment(
+            String trackingCode, String contact, String parcelSize,
+            String compartmentCode, String compartmentSize, String stationCode) {
         Station station = new Station(stationCode, "Estação " + stationCode, 40.63, -8.65);
-        Compartment compartment = new Compartment(compartmentCode, station, CompartmentSize.valueOf(size));
+        Compartment compartment = new Compartment(
+            compartmentCode, station, CompartmentSize.valueOf(compartmentSize));
         compartment.reserve();
-        Parcel parcel = new Parcel(trackingCode, contact, size);
+        Parcel parcel = new Parcel(trackingCode, contact, parcelSize);
         parcel.setStation(station);
         parcel.setAssignedCompartment(compartment);
         return parcel;

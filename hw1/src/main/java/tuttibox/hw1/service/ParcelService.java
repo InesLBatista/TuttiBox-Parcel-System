@@ -95,8 +95,8 @@ public class ParcelService {
     public Parcel processCourierDropOff(String trackingCode, String stationId, String compartmentId, String courierId) {
         Parcel parcel = findByTrackingCode(trackingCode);
         ensureParcelCanBeDroppedOff(parcel);
-        validateCompartmentSize(parcel, compartmentId);
         Compartment compartment = resolveAssignedCompartment(parcel, stationId, compartmentId);
+        validateCompartmentSize(parcel, compartment);
 
         String assignedStation = compartment.getStation().getCode();
         hardwarePort.openCompartment(assignedStation, compartment.getCode());
@@ -110,8 +110,8 @@ public class ParcelService {
     public Parcel confirmCourierDropOff(String trackingCode, String stationId, String compartmentId, String courierId) {
         Parcel parcel = findByTrackingCode(trackingCode);
         ensureParcelCanBeDroppedOff(parcel);
-        validateCompartmentSize(parcel, compartmentId);
         Compartment compartment = resolveAssignedCompartment(parcel, stationId, compartmentId);
+        validateCompartmentSize(parcel, compartment);
 
         String assignedStation = compartment.getStation().getCode();
         hardwarePort.confirmDoorClosed(assignedStation, compartment.getCode());
@@ -209,26 +209,12 @@ public class ParcelService {
         return assigned;
     }
 
-    private void validateCompartmentSize(Parcel parcel, String compartmentId) {
-        String compartmentSize = inferCompartmentSize(compartmentId);
+    private void validateCompartmentSize(Parcel parcel, Compartment compartment) {
+        String compartmentSize = compartment.getSize().name();
         String parcelSize = parcel.getCompartmentSize().toUpperCase();
         if (!isSizeCompatible(parcelSize, compartmentSize)) {
             throw new IllegalArgumentException("tamanho do compartimento " + compartmentSize + " é muito pequeno para o tamanho da encomenda " + parcelSize);
         }
-    }
-
-    private String inferCompartmentSize(String compartmentId) {
-        String compIdUpper = compartmentId.toUpperCase();
-        if (compIdUpper.contains("_S") || compIdUpper.endsWith("S") || compIdUpper.contains("SMALL")) {
-            return "S";
-        }
-        if (compIdUpper.contains("_M") || compIdUpper.endsWith("M") || compIdUpper.contains("MEDIUM")) {
-            return "M";
-        }
-        if (compIdUpper.contains("_L") || compIdUpper.endsWith("L") || compIdUpper.contains("LARGE")) {
-            return "L";
-        }
-        throw new IllegalArgumentException("compartimento não especifica um tamanho válido: " + compartmentId);
     }
 
     private boolean isSizeCompatible(String parcelSize, String compartmentSize) {

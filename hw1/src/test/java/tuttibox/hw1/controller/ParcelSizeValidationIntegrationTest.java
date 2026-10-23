@@ -49,63 +49,59 @@ public class ParcelSizeValidationIntegrationTest {
     }
 
     @Test 
-    @DisplayName ("deve rejeitar o dropoff quando o compartimento é demasiado pequeno para a encomenda")
+    @DisplayName ("deve rejeitar o dropoff quando o compartimento atribuído é demasiado pequeno")
     void testCompartmentTooSmallReturnsBadRequest() throws Exception {
-        Parcel parcel = new Parcel("TRK-SIZE-01", "client@example.com", "L");
-        parcelRepository.save(parcel);
-
-        DropOffRequestDto dropOffDto = new DropOffRequestDto();
-        dropOffDto.setStationId("STATION_01");
-        dropOffDto.setCompartmentId("COMP_S1"); 
-        dropOffDto.setCourierId("COURIER_01");
+        saveParcelWithCompartment("TRK-SIZE-01", "L", "COMP_S1", CompartmentSize.S);
 
         mockMvc.perform(post("/api/parcels/TRK-SIZE-01/dropoff")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(dropOffDto)))
+                .content(objectMapper.writeValueAsString(dropOffDto("COMP_S1"))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("tamanho do compartimento S é muito pequeno para o tamanho da encomenda L"));
     }
 
     @Test
-    @DisplayName("deve rejeitar o dropoff quando o id do compartimento não especifica um tamanho válido")
-    void testInvalidCompartmentIdFormatReturnsBadRequest() throws Exception {
-        Parcel parcel = new Parcel("TRK-SIZE-02", "client@example.com", "M");
-        parcelRepository.save(parcel);
-
-        DropOffRequestDto dropOffDto = new DropOffRequestDto();
-        dropOffDto.setStationId("STATION_01");
-        dropOffDto.setCompartmentId("COMP_123"); 
-        dropOffDto.setCourierId("COURIER_01");
+    @DisplayName("deve usar o tamanho do compartimento atribuído e não inferi-lo do texto do compartmentId")
+    void testAssignedCompartmentSizeIsUsedInsteadOfCompartmentIdText() throws Exception {
+        saveParcelWithCompartment("TRK-SIZE-02", "S", "COMP_123", CompartmentSize.M);
 
         mockMvc.perform(post("/api/parcels/TRK-SIZE-02/dropoff")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(dropOffDto)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("compartimento não especifica um tamanho válido: COMP_123"));
+                .content(objectMapper.writeValueAsString(dropOffDto("COMP_123"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentState").value("CREATED"));
     }
 
     @Test 
     @DisplayName ("deve permitir abrir o compartimento quando o tamanho é compatível")
     void testCompatibleSizeSInMReturnsSuccess() throws Exception {
-        Station station = stationRepository.save(
-            new Station("STATION_01", "Estação Central", 40.63, -8.65));
-        Compartment compartment = new Compartment("COMP_M1", station, CompartmentSize.M);
-        compartment.reserve();
-        compartmentRepository.save(compartment);
-        Parcel parcel = new Parcel("TRK-SIZE-03", "client@example.com", "S");
-        parcel.setStation(station);
-        parcel.setAssignedCompartment(compartment);
-        parcelRepository.save(parcel);
-
-        DropOffRequestDto dropOffDto = new DropOffRequestDto();
-        dropOffDto.setStationId("STATION_01");
-        dropOffDto.setCompartmentId("COMP_M1"); 
-        dropOffDto.setCourierId("COURIER_01");
+        saveParcelWithCompartment("TRK-SIZE-03", "S", "COMP_M1", CompartmentSize.M);
 
         mockMvc.perform(post("/api/parcels/TRK-SIZE-03/dropoff")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(dropOffDto)))
+                .content(objectMapper.writeValueAsString(dropOffDto("COMP_M1"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.currentState").value("CREATED"));
+    }
+
+    private Parcel saveParcelWithCompartment(
+            String trackingCode, String parcelSize, String compartmentCode, CompartmentSize compartmentSize) {
+        Station station = stationRepository.save(
+            new Station("STATION_01", "Estação Central", 40.63, -8.65));
+        Compartment compartment = new Compartment(compartmentCode, station, compartmentSize);
+        compartment.reserve();
+        compartmentRepository.save(compartment);
+        Parcel parcel = new Parcel(trackingCode, "client@example.com", parcelSize);
+        parcel.setStation(station);
+        parcel.setAssignedCompartment(compartment);
+        return parcelRepository.save(parcel);
+    }
+
+    private DropOffRequestDto dropOffDto(String compartmentId) {
+        DropOffRequestDto dropOffDto = new DropOffRequestDto();
+        dropOffDto.setStationId("STATION_01");
+        dropOffDto.setCompartmentId(compartmentId);
+        dropOffDto.setCourierId("COURIER_01");
+        return dropOffDto;
     }
 }
