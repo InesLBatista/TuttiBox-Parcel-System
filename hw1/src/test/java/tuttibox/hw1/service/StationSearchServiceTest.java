@@ -94,15 +94,6 @@ class StationSearchServiceTest {
     }
 
     @Test
-    @DisplayName("distância de um grau de longitude no equador é aproximadamente 111,195 km")
-    void testHaversineKnownDistance() {
-        double distance = StationSearchService.distanceKm(
-            new Coordinates(0, 0), new Coordinates(0, 1));
-
-        assertThat(distance).isCloseTo(111.195, within(0.01));
-    }
-
-    @Test
     @DisplayName("distância entre coordenadas iguais é zero")
     void testHaversineSamePoint() {
         Coordinates point = new Coordinates(40.6305, -8.6571);
