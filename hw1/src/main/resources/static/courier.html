@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TuttiBox - Terminal do courier</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --primary: #0f4c81;
+            --primary-dark: #0b3a63;
+            --background: #eef3f7;
+            --surface: #ffffff;
+            --border: #d6dee6;
+            --text: #1f2933;
+            --muted: #5c6b7a;
+            --success: #1b6e3f;
+            --success-bg: #e8f5ee;
+            --error: #b3261e;
+            --error-bg: #fdecea;
+            --info-bg: #e9f1f7;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background:
+                radial-gradient(circle at top left, #dce9f3 0, transparent 34rem),
+                var(--background);
+            color: var(--text);
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            padding: 2rem 1rem;
+        }
+
+        main {
+            width: 100%;
+            max-width: 760px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 1.5rem;
+        }
+
+        .kicker {
+            margin: 0 0 0.35rem;
+            color: var(--primary);
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            margin: 0 0 0.5rem;
+            color: var(--primary-dark);
+            font-size: clamp(1.7rem, 5vw, 2.4rem);
+        }
+
+        header p {
+            margin: 0;
+            color: var(--muted);
+            max-width: 60ch;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 0.85rem;
+            padding: 1.5rem;
+            box-shadow: 0 10px 30px rgba(15, 76, 129, 0.08);
+            margin-bottom: 1rem;
+        }
+
+        .card h2 {
+            margin: 0 0 0.75rem;
+            color: var(--primary-dark);
+            font-size: 1.2rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1rem;
+        }
+
+        .field {
+            display: grid;
+            gap: 0.4rem;
+        }
+
+        .field.wide {
+            grid-column: 1 / -1;
+        }
+
+        label {
+            font-weight: 600;
+            font-size: 0.92rem;
+        }
+
+        input {
+            width: 100%;
+            padding: 0.75rem 0.85rem;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            background: #ffffff;
+            color: var(--text);
+            font: inherit;
+        }
+
+        input:focus {
+            outline: 2px solid var(--primary);
+            outline-offset: 1px;
+            border-color: var(--primary);
+        }
+
+        input:disabled {
+            background: #f2f5f7;
+            color: var(--muted);
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 1.25rem;
+        }
+
+        button {
+            padding: 0.78rem 1.3rem;
+            border: none;
+            border-radius: 0.5rem;
+            background: var(--primary);
+            color: #ffffff;
+            font: inherit;
+            font-weight: 650;
+            cursor: pointer;
+        }
+
+        button:hover:not(:disabled) {
+            background: var(--primary-dark);
+        }
+
+        button:disabled {
+            cursor: wait;
+            opacity: 0.65;
+        }
+
+        button.secondary {
+            background: #ffffff;
+            color: var(--primary-dark);
+            border: 1px solid var(--border);
+        }
+
+        button.secondary:hover:not(:disabled) {
+            background: var(--info-bg);
+        }
+
+        .hint {
+            margin: 0.75rem 0 0;
+            color: var(--muted);
+            font-size: 0.88rem;
+        }
+
+        .status {
+            margin: 1.1rem 0 0;
+            padding: 0.9rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 0.55rem;
+            background: var(--info-bg);
+            line-height: 1.45;
+        }
+
+        .status.success {
+            border-color: #b8dfc8;
+            background: var(--success-bg);
+            color: var(--success);
+        }
+
+        .status.error {
+            border-color: #f2b8b5;
+            background: var(--error-bg);
+            color: var(--error);
+        }
+
+        .summary {
+            margin: 0;
+            line-height: 1.55;
+        }
+
+        .summary strong {
+            color: var(--primary-dark);
+        }
+
+        .state {
+            display: inline-block;
+            margin-top: 0.6rem;
+            padding: 0.2rem 0.55rem;
+            border-radius: 999px;
+            background: var(--info-bg);
+            color: var(--primary-dark);
+            font-size: 0.82rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+        }
+
+        footer {
+            margin-top: 1.25rem;
+            color: var(--muted);
+            font-size: 0.86rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            justify-content: space-between;
+        }
+
+        footer a {
+            color: var(--primary);
+        }
+
+        [hidden] {
+            display: none !important;
+        }
+
+        @media (max-width: 620px) {
+            body {
+                padding: 1.25rem 0.75rem;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .card {
+                padding: 1.15rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <header>
+            <p class="kicker">Locker TuttiBox</p>
+            <h1>Terminal do courier</h1>
+            <p>Introduza o tracking code da encomenda e os dados do compartimento reservado. O terminal abre a porta, valida o fecho e conclui o depósito.</p>
+        </header>
+
+        <section class="card" aria-labelledby="dropoff-title">
+            <h2 id="dropoff-title">Depositar encomenda</h2>
+            <form id="dropoff-form" novalidate>
+                <div class="grid">
+                    <div class="field wide">
+                        <label for="tracking-code">Tracking code</label>
+                        <input id="tracking-code" name="trackingCode" type="text"
+                               placeholder="Ex.: TRK-12345678" autocomplete="off"
+                               autocapitalize="characters" spellcheck="false" required>
+                    </div>
+                    <div class="field">
+                        <label for="station-id">Estação</label>
+                        <input id="station-id" name="stationId" type="text"
+                               placeholder="Ex.: STATION_01" autocomplete="off" required>
+                    </div>
+                    <div class="field">
+                        <label for="compartment-id">Compartimento</label>
+                        <input id="compartment-id" name="compartmentId" type="text"
+                               placeholder="Ex.: COMP_M1" autocomplete="off" required>
+                    </div>
+                    <div class="field wide">
+                        <label for="courier-id">Identificador do courier</label>
+                        <input id="courier-id" name="courierId" type="text"
+                               placeholder="Ex.: COURIER_123" autocomplete="off" required>
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button id="open-button" type="submit">Abrir compartimento</button>
+                    <button id="reset-button" class="secondary" type="button">Limpar</button>
+                </div>
+                <p class="hint">O compartimento tem de ser o que foi reservado no registo da encomenda. Se a estação ou o compartimento não coincidirem, o pedido é rejeitado.</p>
+            </form>
+
+            <p id="status" class="status" role="status" aria-live="polite" hidden></p>
+        </section>
+
+        <section id="confirmation" class="card" aria-labelledby="confirmation-title" hidden>
+            <h2 id="confirmation-title">Passo 2: confirmar o fecho</h2>
+            <div id="confirmation-summary" class="summary"></div>
+            <div class="actions">
+                <button id="confirm-button" type="button">Confirmar fecho e concluir</button>
+            </div>
+            <p class="hint">Coloque a encomenda no compartimento, feche a porta e só depois confirme. Se a porta não fechar, corrija a situação e tente novamente.</p>
+        </section>
+
+        <section id="success" class="card" aria-labelledby="success-title" hidden>
+            <h2 id="success-title">Depósito concluído</h2>
+            <div id="success-summary" class="summary"></div>
+            <div class="actions">
+                <button id="new-button" class="secondary" type="button">Novo depósito</button>
+            </div>
+        </section>
+
+        <footer>
+            <span>TuttiBox &mdash; terminal de depósito</span>
+            <a href="/">Pesquisar estações</a>
+        </footer>
+    </main>
+
+    <script>
+        const form = document.getElementById("dropoff-form");
+        const openButton = document.getElementById("open-button");
+        const resetButton = document.getElementById("reset-button");
+        const confirmButton = document.getElementById("confirm-button");
+        const newButton = document.getElementById("new-button");
+        const statusMessage = document.getElementById("status");
+        const confirmationSection = document.getElementById("confirmation");
+        const confirmationSummary = document.getElementById("confirmation-summary");
+        const successSection = document.getElementById("success");
+        const successSummary = document.getElementById("success-summary");
+        const inputs = Array.from(form.querySelectorAll("input"));
+
+        let currentDropOff = null;
+
+        prefillFromQuery();
+
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+
+            if (currentDropOff) {
+                return;
+            }
+
+            const data = readForm();
+            if (!data) {
+                return;
+            }
+
+            await openCompartment(data);
+        });
+
+        confirmButton.addEventListener("click", async () => {
+            if (!currentDropOff) {
+                showError("abra primeiro o compartimento antes de confirmar o fecho.");
+                return;
+            }
+
+            await confirmDropOff(currentDropOff);
+        });
+
+        resetButton.addEventListener("click", () => resetTerminal());
+
+        newButton.addEventListener("click", () => resetTerminal());
+
+        async function openCompartment(data) {
+            setButtonBusy(openButton, true, "a abrir...");
+            hideStatus();
+            successSection.hidden = true;
+
+            try {
+                const parcel = await postJson(
+                    `/api/parcels/${encodeURIComponent(data.trackingCode)}/dropoff`,
+                    {
+                        stationId: data.stationId,
+                        compartmentId: data.compartmentId,
+                        courierId: data.courierId
+                    });
+
+                currentDropOff = data;
+                setFormLocked(true);
+                showStatus(
+                    `Compartimento ${data.compartmentId} aberto. Coloque a encomenda, feche a porta e confirme o fecho.`,
+                    "info");
+                confirmationSummary.replaceChildren(
+                    textLine("Encomenda: ", parcel.trackingCode || data.trackingCode),
+                    textLine("Estação: ", data.stationId),
+                    textLine("Compartimento: ", data.compartmentId),
+                    stateBadge(parcel.currentState));
+                confirmationSection.hidden = false;
+            } catch (error) {
+                currentDropOff = null;
+                setFormLocked(false);
+                confirmationSection.hidden = true;
+                showError(errorMessage(error));
+            } finally {
+                setButtonBusy(openButton, false, "Abrir compartimento");
+                openButton.disabled = currentDropOff !== null;
+            }
+        }
+
+        async function confirmDropOff(data) {
+            setButtonBusy(confirmButton, true, "a confirmar...");
+            hideStatus();
+
+            try {
+                const parcel = await postJson(
+                    `/api/parcels/${encodeURIComponent(data.trackingCode)}/dropoff/confirm`,
+                    {
+                        stationId: data.stationId,
+                        compartmentId: data.compartmentId,
+                        courierId: data.courierId
+                    });
+
+                confirmationSection.hidden = true;
+                showStatus("Fecho confirmado. A encomenda está pronta para recolha.", "success");
+                successSummary.replaceChildren(
+                    textLine("Tracking code: ", parcel.trackingCode || data.trackingCode),
+                    textLine("Estado: ", parcel.currentState),
+                    document.createTextNode("O código de recolha foi enviado ao destinatário."));
+                successSection.hidden = false;
+            } catch (error) {
+                showError(errorMessage(error));
+            } finally {
+                setButtonBusy(confirmButton, false, "Confirmar fecho e concluir");
+            }
+        }
+
+        function readForm() {
+            const data = {
+                trackingCode: valueOf("tracking-code"),
+                stationId: valueOf("station-id"),
+                compartmentId: valueOf("compartment-id"),
+                courierId: valueOf("courier-id")
+            };
+
+            if (!data.trackingCode || !data.stationId || !data.compartmentId || !data.courierId) {
+                showError("preencha o tracking code, a estação, o compartimento e o identificador do courier.");
+                return null;
+            }
+
+            return data;
+        }
+
+        function valueOf(id) {
+            return document.getElementById(id).value.trim();
+        }
+
+        function prefillFromQuery() {
+            const params = new URLSearchParams(window.location.search);
+            const fields = {
+                trackingCode: "tracking-code",
+                stationId: "station-id",
+                compartmentId: "compartment-id",
+                courierId: "courier-id"
+            };
+
+            for (const [parameter, id] of Object.entries(fields)) {
+                if (params.has(parameter)) {
+                    document.getElementById(id).value = params.get(parameter);
+                }
+            }
+        }
+
+        async function postJson(url, body) {
+            const response = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                },
+                body: JSON.stringify(body)
+            });
+            const payload = await response.json().catch(() => null);
+
+            if (!response.ok) {
+                throw new ApiError(response.status, payload);
+            }
+
+            return payload;
+        }
+
+        class ApiError extends Error {
+            constructor(status, payload) {
+                super(`erro ${status}`);
+                this.status = status;
+                this.payload = payload;
+            }
+        }
+
+        function errorMessage(error) {
+            if (error instanceof TypeError) {
+                return "não foi possível contactar o servidor. Verifique a ligação e tente novamente.";
+            }
+            if (error instanceof ApiError) {
+                if (error.status === 404) {
+                    return "encomenda não encontrada. Confirme o tracking code.";
+                }
+                if (error.status === 503) {
+                    return "o locker não respondeu corretamente. Verifique a porta do compartimento e tente novamente.";
+                }
+                if (error.status === 400) {
+                    return (error.payload && error.payload.message)
+                        || "os dados não correspondem ao compartimento reservado para esta encomenda.";
+                }
+                return (error.payload && error.payload.message)
+                    || `não foi possível concluir a operação (erro ${error.status}).`;
+            }
+            return error.message || "ocorreu um erro inesperado.";
+        }
+
+        function setFormLocked(locked) {
+            for (const input of inputs) {
+                input.disabled = locked;
+            }
+            resetButton.disabled = locked;
+            openButton.disabled = locked;
+            if (!locked) {
+                openButton.textContent = "Abrir compartimento";
+            }
+        }
+
+        function setButtonBusy(button, busy, label) {
+            button.disabled = busy;
+            button.textContent = busy ? label : (button === openButton ? "Abrir compartimento"
+                : button === confirmButton ? "Confirmar fecho e concluir"
+                : "Novo depósito");
+            form.setAttribute("aria-busy", button === openButton ? String(busy) : "false");
+        }
+
+        function showStatus(message, kind) {
+            statusMessage.textContent = message;
+            statusMessage.className = `status ${kind}`;
+            statusMessage.hidden = false;
+        }
+
+        function showError(message) {
+            showStatus(message, "error");
+        }
+
+        function hideStatus() {
+            statusMessage.hidden = true;
+            statusMessage.textContent = "";
+        }
+
+        function stateBadge(state) {
+            const badge = document.createElement("span");
+            badge.className = "state";
+            badge.textContent = state || "CREATED";
+            return badge;
+        }
+
+        function textLine(label, value) {
+            const line = document.createElement("p");
+            line.className = "summary";
+            const strong = document.createElement("strong");
+            strong.textContent = label;
+            line.append(strong, document.createTextNode(value || ""));
+            return line;
+        }
+
+        function resetTerminal() {
+            currentDropOff = null;
+            form.reset();
+            setFormLocked(false);
+            confirmationSection.hidden = true;
+            successSection.hidden = true;
+            hideStatus();
+            history.replaceState(null, "", window.location.pathname);
+        }
+    </script>
+</body>
+</html>
