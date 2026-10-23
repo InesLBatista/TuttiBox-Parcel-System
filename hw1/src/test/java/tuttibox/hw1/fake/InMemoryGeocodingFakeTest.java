@@ -8,8 +8,11 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import tuttibox.hw1.model.Coordinates;
+import tuttibox.hw1.port.GeocodingException;
 
 class InMemoryGeocodingFakeTest {
     private InMemoryGeocodingFake geocodingFake;
@@ -45,13 +48,35 @@ class InMemoryGeocodingFakeTest {
         assertThat(geocodingFake.getCoordinates("Nova Morada")).contains(coords);
     }
 
+    @ParameterizedTest
+    @EnumSource(GeocodingException.Reason.class)
+    @DisplayName("simula cada tipo de falha do serviço de geocoding")
+    void testSimulatedFailures(GeocodingException.Reason reason) {
+        geocodingFake.setFailure(reason);
+
+        assertThatThrownBy(() -> geocodingFake.getCoordinates("Anadia"))
+                .isInstanceOf(GeocodingException.class)
+                .satisfies(ex -> assertThat(((GeocodingException) ex).getReason()).isEqualTo(reason));
+    }
+
     @Test
-    @DisplayName("indisponibilidade simulada lança uma exceção de runtime")
+    @DisplayName("indisponibilidade simulada lança uma exceção de geocoding")
     void testSimulateUnavailable() {
         geocodingFake.setSimulateUnavailable(true);
 
         assertThatThrownBy(() -> geocodingFake.getCoordinates("Anadia"))
-                .isInstanceOf(RuntimeException.class)
+                .isInstanceOf(GeocodingException.class)
+                .satisfies(ex -> assertThat(((GeocodingException) ex).getReason())
+                    .isEqualTo(GeocodingException.Reason.UNAVAILABLE))
                 .hasMessageContaining("unavailable");
+    }
+
+    @Test
+    @DisplayName("falha simulada pode ser removida")
+    void testClearSimulatedFailure() {
+        geocodingFake.setFailure(GeocodingException.Reason.TIMEOUT);
+        geocodingFake.clearFailure();
+
+        assertThat(geocodingFake.getCoordinates("Anadia")).isPresent();
     }
 }

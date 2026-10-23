@@ -7,6 +7,7 @@ import java.util.Optional;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
+import tuttibox.hw1.port.GeocodingException;
 import tuttibox.hw1.port.GeocodingPort;
 import tuttibox.hw1.model.*;;
 
@@ -14,16 +15,24 @@ import tuttibox.hw1.model.*;;
 @Primary 
 public class InMemoryGeocodingFake implements GeocodingPort {
     private final Map<String, Coordinates> addressDatabase = new HashMap<>();
-    private boolean simulateUnavailable = false;
+    private GeocodingException.Reason simulatedFailure;
 
     public InMemoryGeocodingFake() {
-        //dados para testes/demostração
+        //dados para testes/demonstração
         addressDatabase.put("Anadia", new Coordinates(40.6305, -8.6571));
         addressDatabase.put("Aradas", new Coordinates(40.6418, -8.6444));
     }
 
     public void setSimulateUnavailable(boolean simulateUnavailable) {
-        this.simulateUnavailable=simulateUnavailable;
+        simulatedFailure = simulateUnavailable ? GeocodingException.Reason.UNAVAILABLE : null;
+    }
+
+    public void setFailure(GeocodingException.Reason reason) {
+        this.simulatedFailure = reason;
+    }
+
+    public void clearFailure() {
+        this.simulatedFailure = null;
     }
 
     public void addAddress(String address, Coordinates coordinates) {
@@ -32,11 +41,20 @@ public class InMemoryGeocodingFake implements GeocodingPort {
 
     @Override 
     public Optional<Coordinates> getCoordinates(String address) {
-        if (simulateUnavailable) {
-            //simulação da inidsponibilidade de serviço externo de geolocalização
-            throw new RuntimeException("geocoding service is unavailable");
+        if (simulatedFailure != null) {
+            throw new GeocodingException(simulatedFailure, messageFor(simulatedFailure));
         }
 
         return Optional.ofNullable(addressDatabase.get(address));
+    }
+
+    private String messageFor(GeocodingException.Reason reason) {
+        return switch (reason) {
+            case UNAVAILABLE -> "geocoding service is unavailable";
+            case TIMEOUT -> "geocoding service timed out";
+            case RATE_LIMITED -> "geocoding service usage limit exceeded";
+            case INVALID_RESPONSE -> "geocoding service returned an invalid response";
+            case PROVIDER_ERROR -> "geocoding service returned an error";
+        };
     }
 }

@@ -10,9 +10,20 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import jakarta.persistence.EntityNotFoundException;
+import tuttibox.hw1.port.GeocodingException;
 
 @RestControllerAdvice 
 public class GlobalExceptionHandler {
+    @ExceptionHandler(GeocodingException.class)
+    public ResponseEntity<Object> handleGeocoding(GeocodingException ex) {
+        HttpStatus status = switch (ex.getReason()) {
+            case TIMEOUT -> HttpStatus.GATEWAY_TIMEOUT;
+            case INVALID_RESPONSE, PROVIDER_ERROR -> HttpStatus.BAD_GATEWAY;
+            case UNAVAILABLE, RATE_LIMITED -> HttpStatus.SERVICE_UNAVAILABLE;
+        };
+        return buildErrorResponse(status, ex.getMessage());
+    }
+
     @ExceptionHandler(InvalidTransitionException.class)
     public ResponseEntity<Object> handleInvalidTransition(InvalidTransitionException ex) {
         return buildErrorResponse(HttpStatus.BAD_REQUEST, ex.getMessage());

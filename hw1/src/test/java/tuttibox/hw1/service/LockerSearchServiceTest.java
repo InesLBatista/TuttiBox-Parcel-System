@@ -11,6 +11,8 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Mockito;
 
 import tuttibox.hw1.dto.NearbyStationDto;
@@ -19,6 +21,7 @@ import tuttibox.hw1.model.CompartmentSize;
 import tuttibox.hw1.model.CompartmentStatus;
 import tuttibox.hw1.model.Coordinates;
 import tuttibox.hw1.model.Station;
+import tuttibox.hw1.port.GeocodingException;
 import tuttibox.hw1.repository.CompartmentRepository;
 import tuttibox.hw1.repository.StationRepository;
 
@@ -76,14 +79,15 @@ class LockerSearchServiceTest {
         verifyNoInteractions(compartmentRepositoryMock);
     }
 
-    @Test
-    @DisplayName("deve lidar com a indisponibilidade do serviço de geocoding")
-    void testGeocodingServiceUnavailable() {
-        geocodingFake.setSimulateUnavailable(true);
+    @ParameterizedTest
+    @EnumSource(GeocodingException.Reason.class)
+    @DisplayName("deve propagar falhas do geocoding sem consultar os repositórios")
+    void testGeocodingFailuresArePropagated(GeocodingException.Reason reason) {
+        geocodingFake.setFailure(reason);
 
         assertThatThrownBy(() -> lockerSearchService.findNearestStations("Anadia"))
-            .isInstanceOf(RuntimeException.class)
-            .hasMessageContaining("geocoding service is unavailable");
+            .isInstanceOf(GeocodingException.class)
+            .satisfies(ex -> assertThat(((GeocodingException) ex).getReason()).isEqualTo(reason));
 
         verifyNoInteractions(stationRepositoryMock);
         verifyNoInteractions(compartmentRepositoryMock);
