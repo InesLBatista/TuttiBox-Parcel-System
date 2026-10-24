@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TuttiBox - Terminal do destinatario</title>
+    <style>
+        body{font-family:sans-serif;background:#eef3f7}
+        .card{background:#fff;padding:1.5rem;border:1px solid #d6dee6;border-radius:8px;max-width:640px;margin:2rem auto}
+    </style>
+</head>
+<body>
+    <main>
+        <header>
+            <h1>Terminal do destinatario</h1>
+            <p>Introduza o codigo de recolha recebido por mensagem para abrir o compartimento e levantar a encomenda.</p>
+        </header>
+        <section class="card">
+            <h2>Recolha</h2>
+            <form id="pickup-form" novalidate>
+                <label for="pickup-code">Codigo de recolha</label>
+                <input id="pickup-code" name="pickupCode" inputmode="text" autocomplete="one-time-code" maxlength="8" placeholder="ABCD2345" required>
+                <button id="submit-button" type="submit">Recolher encomenda</button>
+            </form>
+        </section>
+        <section id="status" hidden></section>
+        <footer>
+            <a href="/">Encontrar estacao</a> | <a href="/courier.html">Terminal do courier</a>
+        </footer>
+    </main>
+    <script>
+        const form=document.getElementById("pickup-form");
+        const codeInput=document.getElementById("pickup-code");
+        form.addEventListener("submit",async(e)=>{e.preventDefault();await fetch("/api/parcels/pickup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pickupCode:codeInput.value})});});
+    </script>
+</body>
+</html>
