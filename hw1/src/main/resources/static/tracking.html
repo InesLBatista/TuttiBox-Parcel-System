@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TuttiBox - Consulta de tracking</title>
+    <style>
+        body{font-family:sans-serif;background:#eef3f7;margin:0;padding:2rem 1rem}
+        main{max-width:640px;margin:0 auto}
+        .card{background:#fff;border:1px solid #d6dee6;border-radius:8px;padding:1.5rem;margin-bottom:1rem}
+        input{padding:0.7rem 0.9rem;border:1px solid #d6dee6;border-radius:6px;width:70%;max-width:280px}
+        button{padding:0.7rem 1.2rem;border:none;border-radius:6px;background:#0f4c81;color:#fff;cursor:pointer}
+        .hidden{display:none}
+        ul{list-style:none;padding:0}
+        li{padding:0.5rem 0;border-bottom:1px solid #f0f0f0}
+    </style>
+</head>
+<body>
+    <main>
+        <header>
+            <h1>Consultar estado da encomenda</h1>
+            <p>Introduza o código de tracking para ver o estado atual e histórico.</p>
+        </header>
+        <section class="card">
+            <form id="track-form">
+                <input id="tracking-code" name="trackingCode" placeholder="TBX-..." required>
+                <button type="submit">Consultar</button>
+            </form>
+        </section>
+        <section id="status-card" class="card hidden">
+            <h2>Estado atual</h2>
+            <p><strong>Código:</strong> <span id="code"></span></p>
+            <p><strong>Estado:</strong> <span id="state"></span></p>
+        </section>
+        <section id="history-card" class="card hidden">
+            <h2>Histórico</h2>
+            <ul id="history"></ul>
+        </section>
+        <footer>
+            <a href="/">Início</a> | <a href="/recipient.html">Terminal do destinatário</a> | <a href="/courier.html">Terminal do courier</a>
+        </footer>
+    </main>
+    <script>
+        const form=document.getElementById('track-form');
+        const trackingInput=document.getElementById('tracking-code');
+        const statusCard=document.getElementById('status-card');
+        const historyCard=document.getElementById('history-card');
+        const codeEl=document.getElementById('code');
+        const stateEl=document.getElementById('state');
+        const historyEl=document.getElementById('history');
+        const params=new URLSearchParams(location.search);
+        if(params.get('code')){trackingInput.value=params.get('code');}
+        form.addEventListener('submit',async(e)=>{
+            e.preventDefault();
+            const code=trackingInput.value.trim();
+            if(!code)return;
+            try{
+                const [sRes,hRes]=await Promise.all([
+                    fetch('/api/parcels/'+encodeURIComponent(code)+'/status'),
+                    fetch('/api/parcels/'+encodeURIComponent(code)+'/history')
+                ]);
+                if(!sRes.ok) throw new Error('not found');
+                const status=await sRes.json();
+                const history=await hRes.json();
+                codeEl.textContent=code;
+                stateEl.textContent=status;
+                historyEl.innerHTML='';
+                (history||[]).forEach(h=>{
+                    const li=document.createElement('li');
+                    li.textContent=(h.transitionDate||'')+' - '+(h.fromState||'?')+' -> '+(h.toState||'?')+' ('+(h.actor||'')+')';
+                    historyEl.appendChild(li);
+                });
+                statusCard.classList.remove('hidden');
+                historyCard.classList.remove('hidden');
+            }catch(err){
+                alert('Encomenda não encontrada');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -203,7 +203,8 @@ public class ParcelService {
         return parcelRepository.save(parcel);
     }
 
-    private Parcel findByTrackingCode(String trackingCode) { 
+    @Transactional(readOnly = true)
+    public Parcel findByTrackingCode(String trackingCode) { 
         return parcelRepository.findByTrackingCode(trackingCode) 
             .orElseThrow(() -> new EntityNotFoundException("encomenda não foi encontrada: " + trackingCode));
     }

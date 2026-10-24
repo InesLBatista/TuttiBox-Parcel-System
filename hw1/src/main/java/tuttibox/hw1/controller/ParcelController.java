@@ -19,6 +19,7 @@ import tuttibox.hw1.dto.ParcelRequestDto;
 import tuttibox.hw1.dto.ParcelResponseDto;
 import tuttibox.hw1.dto.PickUpRequestDto;
 import tuttibox.hw1.model.Parcel;
+import tuttibox.hw1.model.ParcelState;
 import tuttibox.hw1.model.ParcelTransition;
 import tuttibox.hw1.service.ParcelService;
 
@@ -60,6 +61,16 @@ public class ParcelController {
     @GetMapping("/{trackingCode}/history")
     public ResponseEntity<List<ParcelTransition>> getParcelHistory(@PathVariable String trackingCode) {
         return ResponseEntity.ok(parcelService.getParcelHistory(trackingCode));
+    }
+
+    @GetMapping("/{trackingCode}")
+    public ResponseEntity<Parcel> getParcel(@PathVariable String trackingCode) {
+        return ResponseEntity.ok(parcelService.findByTrackingCode(trackingCode));
+    }
+
+    @GetMapping("/{trackingCode}/status")
+    public ResponseEntity<ParcelState> getParcelStatus(@PathVariable String trackingCode) {
+        return ResponseEntity.ok(parcelService.findByTrackingCode(trackingCode).getCurrentState());
     }
 
     @PostMapping("/{trackingCode}/cancel")
