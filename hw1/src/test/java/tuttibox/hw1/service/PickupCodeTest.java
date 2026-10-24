@@ -32,4 +32,21 @@ class PickupCodeTest {
         assertThat(PickupCode.matches(null, hash)).isFalse();
         assertThat(PickupCode.matches("ABCD2345", null)).isFalse();
     }
+
+    @Test
+    @DisplayName("normalize remove espaços e converte para maiúsculas")
+    void testNormalize() {
+        assertThat(PickupCode.normalize(" abcd2345 ")).isEqualTo("ABCD2345");
+        assertThat(PickupCode.normalize(null)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("validação do formato rejeita códigos incompletos ou ambíguos")
+    void testFormatValidation() {
+        assertThat(PickupCode.isValidFormat("ABCD2345")).isTrue();
+        assertThat(PickupCode.isValidFormat("abcd2345")).isFalse();
+        assertThat(PickupCode.isValidFormat("ABCD234")).isFalse();
+        assertThat(PickupCode.isValidFormat("ABCDI234")).isFalse();
+        assertThat(PickupCode.isValidFormat(null)).isFalse();
+    }
 }

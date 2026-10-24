@@ -299,36 +299,103 @@ class ParcelServiceTest {
     }
 
     @Test
-    @DisplayName("pickup abre o compartimento e transiciona para PICKED_UP")
+    @DisplayName("pickup por código abre o compartimento atribuído, transiciona e liberta-o")
     void testSuccessfulRecipientPickUp() {
-        Parcel parcel = new Parcel("TEST996", "user@example.com", "M");
-        parcel.markAsReadyForPickup("COURIER_01");
-        when(parcelRepositoryMock.findByTrackingCode("TEST996")).thenReturn(Optional.of(parcel));
+        String pickupCode = "ABCD2345";
+        Parcel parcel = parcelReadyForPickup(
+            "TEST996", "user@example.com", "M", "COMP_M1", "STATION_01", pickupCode);
+        Compartment compartment = parcel.getAssignedCompartment();
+        when(parcelRepositoryMock.findByPickupCodeHash(PickupCode.hash(pickupCode)))
+            .thenReturn(Optional.of(parcel));
         when(parcelRepositoryMock.save(any(Parcel.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        Parcel result = parcelService.processRecipientPickUp(
-            "TEST996", "STATION_01", "COMP_M1", "RECIPIENT_01");
+        Parcel result = parcelService.processRecipientPickUp(" abcd2345 ");
 
         verify(hardwarePortMock).openCompartment("STATION_01", "COMP_M1");
+        verify(compartmentRepositoryMock).save(compartment);
         assertThat(result.getCurrentState()).isEqualTo(ParcelState.PICKED_UP);
+        assertThat(result.getPickupCodeHash()).isNull();
+        assertThat(compartment.getStatus()).isEqualTo(CompartmentStatus.FREE);
         assertThat(result.getTransitions()).hasSize(3);
     }
 
     @Test
-    @DisplayName("falha de hardware no pickup mantém a parcela em READY_FOR_PICKUP")
+    @DisplayName("falha de hardware no pickup mantém a encomenda pronta e o código válido")
     void testHardwareFailureDuringPickUp() {
-        Parcel parcel = new Parcel("TEST995", "user@example.com", "S");
-        parcel.markAsReadyForPickup("COURIER_01");
-        when(parcelRepositoryMock.findByTrackingCode("TEST995")).thenReturn(Optional.of(parcel));
+        String pickupCode = "EFGH2345";
+        Parcel parcel = parcelReadyForPickup(
+            "TEST995", "user@example.com", "S", "COMP_S1", "STATION_01", pickupCode);
+        when(parcelRepositoryMock.findByPickupCodeHash(PickupCode.hash(pickupCode)))
+            .thenReturn(Optional.of(parcel));
         doThrow(new HardwareException("hardware failure"))
             .when(hardwarePortMock).openCompartment("STATION_01", "COMP_S1");
 
-        assertThatThrownBy(() ->
-            parcelService.processRecipientPickUp("TEST995", "STATION_01", "COMP_S1", "RECIPIENT_01")
-        ).isInstanceOf(HardwareException.class);
+        assertThatThrownBy(() -> parcelService.processRecipientPickUp(pickupCode))
+            .isInstanceOf(HardwareException.class);
 
         assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.READY_FOR_PICKUP);
+        assertThat(parcel.getPickupCodeHash()).isNotBlank();
+        assertThat(parcel.getAssignedCompartment().getStatus()).isEqualTo(CompartmentStatus.OCCUPIED);
         verify(parcelRepositoryMock, never()).save(any(Parcel.class));
+        verify(compartmentRepositoryMock, never()).save(any(Compartment.class));
+    }
+
+    @Test
+    @DisplayName("pickup com código de formato inválido é rejeitado sem consultar a base de dados")
+    void testPickupWithInvalidFormat() {
+        assertThatThrownBy(() -> parcelService.processRecipientPickUp("ABC"))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("código de recolha inválido");
+
+        verifyNoInteractions(parcelRepositoryMock, hardwarePortMock);
+    }
+
+    @Test
+    @DisplayName("pickup com código desconhecido é rejeitado sem interagir com hardware")
+    void testPickupWithUnknownCode() {
+        String pickupCode = "ABCD2345";
+        when(parcelRepositoryMock.findByPickupCodeHash(PickupCode.hash(pickupCode)))
+            .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> parcelService.processRecipientPickUp(pickupCode))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("código de recolha inválido");
+
+        verifyNoInteractions(hardwarePortMock);
+    }
+
+    @Test
+    @DisplayName("pickup rejeita hash que não corresponde ao código indicado")
+    void testPickupWithMismatchedHash() {
+        String pickupCode = "ABCD2345";
+        Parcel parcel = parcelReadyForPickup(
+            "TEST985", "user@example.com", "S", "COMP_S1", "STATION_01", "ZZZZ9999");
+        when(parcelRepositoryMock.findByPickupCodeHash(PickupCode.hash(pickupCode)))
+            .thenReturn(Optional.of(parcel));
+
+        assertThatThrownBy(() -> parcelService.processRecipientPickUp(pickupCode))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("código de recolha inválido");
+
+        verifyNoInteractions(hardwarePortMock);
+    }
+
+    @Test
+    @DisplayName("código de uma encomenda expirada não abre o compartimento")
+    void testPickupWithExpiredParcel() {
+        String pickupCode = "ABCD2345";
+        Parcel parcel = parcelReadyForPickup(
+            "TEST984", "user@example.com", "S", "COMP_S1", "STATION_01", pickupCode);
+        parcel.expire("SYSTEM");
+        when(parcelRepositoryMock.findByPickupCodeHash(PickupCode.hash(pickupCode)))
+            .thenReturn(Optional.of(parcel));
+
+        assertThatThrownBy(() -> parcelService.processRecipientPickUp(pickupCode))
+            .isInstanceOf(InvalidTransitionException.class)
+            .hasMessageContaining("EXPIRED");
+
+        verifyNoInteractions(hardwarePortMock);
+        assertThat(parcel.getAssignedCompartment().getStatus()).isEqualTo(CompartmentStatus.OCCUPIED);
     }
 
     @Test
@@ -511,6 +578,17 @@ class ParcelServiceTest {
         Parcel parcel = new Parcel(trackingCode, contact, parcelSize);
         parcel.setStation(station);
         parcel.setAssignedCompartment(compartment);
+        return parcel;
+    }
+
+    private Parcel parcelReadyForPickup(
+            String trackingCode, String contact, String size,
+            String compartmentCode, String stationCode, String pickupCode) {
+        Parcel parcel = parcelWithAssignedCompartment(
+            trackingCode, contact, size, compartmentCode, stationCode);
+        parcel.getAssignedCompartment().occupy();
+        parcel.markAsReadyForPickup("COURIER_01");
+        parcel.issuePickupCode(PickupCode.hash(pickupCode));
         return parcel;
     }
 }

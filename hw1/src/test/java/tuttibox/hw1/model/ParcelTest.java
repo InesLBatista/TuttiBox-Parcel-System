@@ -66,10 +66,12 @@ public class ParcelTest {
     @DisplayName("ciclo de vida completo")
     void testCompleteSuccessfulLifecycle() {
         parcel.markAsReadyForPickup("COURIER");
+        parcel.issuePickupCode("hash");
         assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.READY_FOR_PICKUP);
 
         parcel.pickUp("RECIPIENT");
         assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.PICKED_UP);
+        assertThat(parcel.getPickupCodeHash()).isNull();
         assertThat(parcel.getTransitions()).hasSize(3);
     }
 

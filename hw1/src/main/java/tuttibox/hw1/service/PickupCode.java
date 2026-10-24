@@ -5,10 +5,13 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.HexFormat;
+import java.util.Locale;
+import java.util.regex.Pattern;
 
 public final class PickupCode {
     private static final String ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     private static final int LENGTH = 8;
+    private static final Pattern FORMAT = Pattern.compile("[A-HJ-NP-Z2-9]{8}");
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private PickupCode() {
@@ -20,6 +23,17 @@ public final class PickupCode {
             code.append(ALPHABET.charAt(RANDOM.nextInt(ALPHABET.length())));
         }
         return code.toString();
+    }
+
+    public static String normalize(String code) {
+        if (code == null) {
+            return "";
+        }
+        return code.trim().toUpperCase(Locale.ROOT);
+    }
+
+    public static boolean isValidFormat(String code) {
+        return code != null && FORMAT.matcher(code).matches();
     }
 
     public static String hash(String code) {

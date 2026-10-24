@@ -40,7 +40,7 @@ public class Parcel {
 
     //apenas o hash é guardado; o código em claro só existe na notificação ao destinatário
     @JsonIgnore
-    @Column(name = "pickup_code_hash", length = 64)
+    @Column(name = "pickup_code_hash", length = 64, unique = true)
     private String pickupCodeHash;
 
     @Enumerated(EnumType.STRING)
@@ -104,6 +104,7 @@ public class Parcel {
             throw new InvalidTransitionException("parcel ainda não está pronto para pick up");
         }
         transitionTo(ParcelState.PICKED_UP, actor);
+        this.pickupCodeHash = null;
     }
 
     public void expire(String actor) {

@@ -52,11 +52,9 @@ public class ParcelController {
         return ResponseEntity.ok(updated);
     }
 
-    @PostMapping("/{trackingCode}/pickup")
-    public ResponseEntity<Parcel> recipientPickUp(@PathVariable String trackingCode, @Valid @RequestBody PickUpRequestDto request) {
-        Parcel updated = parcelService.processRecipientPickUp(
-            trackingCode, request.getStationId(), request.getCompartmentId(), request.getRecipientId());
-        return ResponseEntity.ok(updated);
+    @PostMapping("/pickup")
+    public ResponseEntity<Parcel> recipientPickUp(@Valid @RequestBody PickUpRequestDto request) {
+        return ResponseEntity.ok(parcelService.processRecipientPickUp(request.getPickupCode()));
     }
 
     @GetMapping("/{trackingCode}/history")

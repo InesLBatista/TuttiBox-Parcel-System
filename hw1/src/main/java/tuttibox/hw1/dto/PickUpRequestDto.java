@@ -1,14 +1,12 @@
 package tuttibox.hw1.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 
 @Data 
 public class PickUpRequestDto {
-    @NotBlank(message = "station id is mandatory")
-    private String stationId;
-    @NotBlank(message = "compartment id is mandatory")
-    private String compartmentId;
-    @NotBlank(message = "recipient id is mandatory")
-    private String recipientId;
+    @NotBlank(message = "pickup code is mandatory")
+    @Pattern(regexp = "(?i)^[A-HJ-NP-Z2-9]{8}$", message = "pickup code must have 8 valid characters")
+    private String pickupCode;
 }

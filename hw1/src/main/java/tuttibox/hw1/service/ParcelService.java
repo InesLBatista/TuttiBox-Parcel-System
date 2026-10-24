@@ -138,12 +138,34 @@ public class ParcelService {
 
 
     @Transactional
-    public Parcel processRecipientPickUp(String trackingCode, String stationId, String compartmentId, String recipientId) {
-        Parcel parcel = findByTrackingCode(trackingCode);
+    public Parcel processRecipientPickUp(String pickupCode) {
+        String normalizedCode = PickupCode.normalize(pickupCode);
+        if (!PickupCode.isValidFormat(normalizedCode)) {
+            throw invalidPickupCode();
+        }
 
-        hardwarePort.openCompartment(stationId, compartmentId);
-        parcel.pickUp(recipientId);
-        return parcelRepository.save(parcel);
+        String codeHash = PickupCode.hash(normalizedCode);
+        Parcel parcel = parcelRepository.findByPickupCodeHash(codeHash)
+            .orElseThrow(this::invalidPickupCode);
+        if (!PickupCode.matches(normalizedCode, parcel.getPickupCodeHash())) {
+            throw invalidPickupCode();
+        }
+
+        ensureParcelCanBePickedUp(parcel);
+        Compartment compartment = resolveAssignedCompartment(parcel);
+        String station = compartment.getStation().getCode();
+
+        hardwarePort.openCompartment(station, compartment.getCode());
+        parcel.pickUp("RECIPIENT");
+        compartment.release();
+
+        Parcel saved = parcelRepository.save(parcel);
+        compartmentRepository.save(compartment);
+
+        log.info("pickup concluído e compartimento libertado: trackingCode={}, estação={}, compartimento={}",
+            saved.getTrackingCode(), station, compartment.getCode());
+
+        return saved;
     }
 
     @Transactional(readOnly = true)
@@ -193,12 +215,26 @@ public class ParcelService {
         }
     }
 
-    private Compartment resolveAssignedCompartment(Parcel parcel, String stationId, String compartmentId) {
+    private void ensureParcelCanBePickedUp(Parcel parcel) {
+        if (parcel.getCurrentState() != ParcelState.READY_FOR_PICKUP) {
+            throw new InvalidTransitionException("não é possível fazer pickup de uma encomenda em " + parcel.getCurrentState());
+        }
+    }
+
+    private IllegalArgumentException invalidPickupCode() {
+        return new IllegalArgumentException("código de recolha inválido");
+    }
+
+    private Compartment resolveAssignedCompartment(Parcel parcel) {
         Compartment assigned = parcel.getAssignedCompartment();
         if (assigned == null) {
-            throw new IllegalStateException(
-                "encomenda " + parcel.getTrackingCode() + " não tem compartimento atribuído");
+            throw new IllegalStateException("encomenda " + parcel.getTrackingCode() + " não tem compartimento atribuído");
         }
+        return assigned;
+    }
+
+    private Compartment resolveAssignedCompartment(Parcel parcel, String stationId, String compartmentId) {
+        Compartment assigned = resolveAssignedCompartment(parcel);
         String assignedStation = assigned.getStation().getCode();
         if (!assignedStation.equals(stationId) || !assigned.getCode().equals(compartmentId)) {
             throw new IllegalArgumentException(
