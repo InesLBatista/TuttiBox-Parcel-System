@@ -55,6 +55,12 @@ Exercitam várias camadas em conjunto, incluindo controladores HTTP, serviços, 
 | `concurrency/ParcelLifecycleConcurrencyIntegrationTest` | Executa operações concorrentes no ciclo de vida para garantir que a encomenda não sofre transições incompatíveis. |
 | `service/ParcelAllocationConcurrencyIntegrationTest` | Tenta reservar simultaneamente o último compartimento e verifica que nunca é atribuído a duas encomendas. |
 
+## Testes de carga e desempenho com k6
+
+O script `hw1/performance/k6/tuttibox.js` combina pedidos às cinco páginas HTML, pesquisa de estações, registo e consulta de encomendas e leituras de supervisão do operador. O perfil atinge até seis VUs no fluxo de encomenda, cinco pesquisas de estação por segundo e dois pedidos de página por segundo. Cada fluxo de encomenda cancela o registo no fim para libertar o compartimento, embora mantenha a encomenda cancelada e o respetivo histórico na base de dados.
+
+Para executar, inicia a aplicação contra uma base de dados descartável e, a partir de `hw1/`, corre `k6 run performance/k6/tuttibox.js`. A configuração e os comandos completos estão na secção “Testes de carga com k6” do README. A execução de referência de 29-10-2026 completou 924 fluxos e 6.750 pedidos, com p95 global de 10,38 ms, zero falhas HTTP e zero iterações perdidas. É uma medição local curta com geocoding, hardware e notificações simulados; não representa capacidade de produção nem substitui o teste concorrente do último compartimento.
+
 ## Testes de contrato
 
 | Classe | O que verifica e porquê |

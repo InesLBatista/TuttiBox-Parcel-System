@@ -16,6 +16,9 @@ docker compose up -d postgres
 
 A aplicação fica disponível em <http://localhost:8080>. Para parar a base de dados: docker compose stop postgres
 
+## Swagger / OpenAPI
+Com a aplicação iniciada, a documentação interativa dos endpoints REST está disponível no Swagger UI: <http://localhost:8080/swagger-ui.html>. O documento OpenAPI em JSON pode ser consultado em <http://localhost:8080/v3/api-docs> e em YAML em <http://localhost:8080/v3/api-docs.yaml>. O Swagger UI permite consultar parâmetros e modelos e experimentar os pedidos; a aplicação não implementa autenticação, por isso usa-o apenas no ambiente local de desenvolvimento.
+
 Se necessário, usar outra porta no host, define POSTGRES_HOST_PORT ao iniciar o Compose e ajusta SPRING_DATASOURCE_URL para essa mesma porta ao iniciar a aplicação. Por exemplo, para usar a porta 5432: POSTGRES_HOST_PORT=5432 docker compose up -d postgres e SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/tuttibox ./mvnw spring-boot:run
 
 ## Testes
@@ -51,6 +54,26 @@ Comandos para executar cada grupo isoladamente:
 
 Os nomes e diretórios das suites estão em hw1/src/test/java/tuttibox/hw1/. Os cenários Cucumber estão em hw1/src/test/resources/features/.
 
+## Testes de carga com k6
+O cenário em `hw1/performance/k6/tuttibox.js` combina pedidos às cinco páginas HTML, pesquisa de estações, registo e consulta de encomendas e leituras do operador. Usa o geocoder em memória e os adapters de demonstração, por isso não envia tráfego para Nominatim nem depende de hardware físico. Instala o k6 na máquina e confirma a instalação com `k6 version`.
+
+Executa o ensaio contra uma base de dados descartável para evitar misturar os registos de carga com dados locais partilhados. Os comandos abaixo iniciam PostgreSQL numa porta própria, a aplicação e o ensaio em três terminais separados:
+
+```bash
+# Terminal 1 — a partir de hw1/
+POSTGRES_HOST_PORT=55432 docker compose -p tuttibox-k6 up -d postgres
+
+# Terminal 2 — a partir de hw1/
+TUTTIBOX_GEOCODING_PROVIDER=memory \
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:55432/tuttibox \
+./mvnw spring-boot:run
+
+# Terminal 3 — a partir de hw1/
+k6 run performance/k6/tuttibox.js
+```
+
+O perfil dura cerca de 55 segundos, atinge seis utilizadores virtuais nos fluxos de encomenda, cinco pesquisas por segundo e dois pedidos de páginas por segundo no pico. Cada iteração de encomenda cancela a encomenda no fim para libertar o compartimento, mas mantém os registos de auditoria; não executes contra produção ou uma base de dados partilhada. O resumo apresenta latências, taxa de pedidos, verificações, erros e iterações perdidas. A secção 3.6 do relatório documenta o perfil, resultados observados e respetivas limitações. Para parar o container isolado: `docker compose -p tuttibox-k6 stop postgres`.
+
 ## Relatórios de testes e cobertura
 
 Gera os relatórios a partir de `hw1/`:
@@ -68,7 +91,7 @@ xdg-open target/site/jacoco/index.html
 
 O XML usado pelo SonarQube fica em hw1/target/site/jacoco/jacoco.xml
 
-Os relatórios Surefire por classe ficam em hw1/target/surefire-reports/ a saída detalhada de Cucumber aparece no terminal e o resumo em hw1/target/surefire-reports/TEST-tuttibox.hw1.bdd.CucumberTest.xml 
+Os relatórios Surefire por classe ficam em hw1/target/surefire-reports/ a saída detalhada de Cucumber aparece no terminal e o resumo em hw1/target/surefire-reports/TEST-tuttibox.hw1.bdd.CucumberTest.xml
 
 Na CI, os artefactos surefire-reports e jacoco-coverage ficam disponíveis na página da execução do workflow
 
