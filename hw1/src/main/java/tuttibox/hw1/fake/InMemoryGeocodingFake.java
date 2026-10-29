@@ -4,15 +4,19 @@ import java.util.HashMap;
 
 import java.util.Map;
 import java.util.Optional;
-import org.springframework.context.annotation.Primary;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import tuttibox.hw1.port.GeocodingException;
 import tuttibox.hw1.port.GeocodingPort;
 import tuttibox.hw1.model.*;;
 
-@Component 
-@Primary 
+@Component
+@ConditionalOnProperty(
+    prefix = "tuttibox.geocoding",
+    name = "provider",
+    havingValue = "memory",
+    matchIfMissing = true)
 public class InMemoryGeocodingFake implements GeocodingPort {
     private final Map<String, Coordinates> addressDatabase = new HashMap<>();
     private GeocodingException.Reason simulatedFailure;
@@ -21,6 +25,10 @@ public class InMemoryGeocodingFake implements GeocodingPort {
         //dados para testes/demonstração
         addressDatabase.put("Anadia", new Coordinates(40.6305, -8.6571));
         addressDatabase.put("Aradas", new Coordinates(40.6418, -8.6444));
+        addressDatabase.put("Aveiro", new Coordinates(40.6405, -8.6538));
+        addressDatabase.put("Aveiro - Centro", new Coordinates(40.6405, -8.6538));
+        addressDatabase.put("Aveiro - Estação", new Coordinates(40.6435, -8.6505));
+        addressDatabase.put("Universidade de Aveiro", new Coordinates(40.6333, -8.6590));
     }
 
     public void setSimulateUnavailable(boolean simulateUnavailable) {
