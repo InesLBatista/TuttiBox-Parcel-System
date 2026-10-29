@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/styles.css">
+    <title>TuttiBox - Supervisão do operador</title>
+</head>
+<body class="page page-operator">
+    <main>
+        <header>
+            <h1>Supervisão do operador</h1>
+            <p>Consulte encomendas por estação e estado, remova encomendas expiradas e controle compartimentos fora de serviço.</p>
+        </header>
+
+        <section class="card" aria-labelledby="filter-title">
+            <h2 id="filter-title">Estação e operador</h2>
+            <form id="operator-form">
+                <div class="field">
+                    <label for="station-id">Código da estação</label>
+                    <input id="station-id" name="stationId" type="text" placeholder="Ex.: ST-01 (vazio = todas)">
+                </div>
+                <div class="field">
+                    <label for="actor">Identificador do operador</label>
+                    <input id="actor" name="actor" type="text" value="OPERATOR_01" required>
+                </div>
+                <div class="field">
+                    <label for="parcel-state">Estado das encomendas</label>
+                    <select id="parcel-state" name="state">
+                        <option value="">Todos os estados</option>
+                        <option value="CREATED">CREATED</option>
+                        <option value="READY_FOR_PICKUP">READY_FOR_PICKUP</option>
+                        <option value="CANCELLED">CANCELLED</option>
+                        <option value="PICKED_UP">PICKED_UP</option>
+                        <option value="EXPIRED">EXPIRED</option>
+                        <option value="RETURNED">RETURNED</option>
+                    </select>
+                </div>
+                <button id="refresh-button" type="submit">Atualizar</button>
+            </form>
+            <p class="hint">Sem estação indicada são listadas as encomendas de todas as estações. Os compartimentos exigem uma estação.</p>
+            <p id="status" class="message" role="status" aria-live="polite" hidden></p>
+        </section>
+
+        <section class="card" aria-labelledby="parcels-title">
+            <h2 id="parcels-title">Encomendas</h2>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th scope="col">Tracking</th>
+                            <th scope="col">Estado</th>
+                            <th scope="col">Tamanho</th>
+                            <th scope="col">Compartimento</th>
+                            <th scope="col">Parceiro</th>
+                            <th scope="col">Destinatário</th>
+                            <th scope="col">Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody id="parcels-body">
+                        <tr><td class="empty" colspan="7">Indique uma estação e clique em atualizar.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="card" aria-labelledby="expired-title">
+            <h2 id="expired-title">Encomendas expiradas</h2>
+            <p class="hint">A remoção de uma encomenda expirada transita-a para RETURNED e liberta o compartimento.</p>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th scope="col">Tracking</th>
+                            <th scope="col">Tamanho</th>
+                            <th scope="col">Compartimento</th>
+                            <th scope="col">Destinatário</th>
+                            <th scope="col">Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody id="expired-body">
+                        <tr><td class="empty" colspan="5">Sem encomendas expiradas para mostrar.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="card" aria-labelledby="compartments-title">
+            <h2 id="compartments-title">Compartimentos</h2>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th scope="col">Código</th>
+                            <th scope="col">Tamanho</th>
+                            <th scope="col">Estado</th>
+                            <th scope="col">Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody id="compartments-body">
+                        <tr><td class="empty" colspan="4">Indique uma estação para ver os compartimentos.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <footer>
+            <a href="/">Encontrar estação</a> &middot;
+            <a href="/recipient.html">Terminal do destinatário</a> &middot;
+            <a href="/courier.html">Terminal do courier</a> &middot;
+            <a href="/tracking.html">Consultar tracking</a>
+        </footer>
+    </main>
+
+    <script>
+        const form = document.getElementById("operator-form");
+        const stationInput = document.getElementById("station-id");
+        const actorInput = document.getElementById("actor");
+        const stateSelect = document.getElementById("parcel-state");
+        const refreshButton = document.getElementById("refresh-button");
+        const statusMessage = document.getElementById("status");
+        const parcelsBody = document.getElementById("parcels-body");
+        const expiredBody = document.getElementById("expired-body");
+        const compartmentsBody = document.getElementById("compartments-body");
+
+        const params = new URLSearchParams(location.search);
+        if (params.get("stationId")) stationInput.value = params.get("stationId");
+        if (params.get("actor")) actorInput.value = params.get("actor");
+        if (params.get("state")) stateSelect.value = params.get("state");
+
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            await refreshAll(true);
+        });
+
+        if (stationInput.value.trim()) {
+            refreshAll(false);
+        }
+
+        async function refreshAll(showSuccess) {
+            const station = stationInput.value.trim();
+            setLoading(true);
+
+            try {
+                await Promise.all([
+                    loadParcels(station),
+                    loadExpired(station),
+                    loadCompartments(station)
+                ]);
+                if (showSuccess) {
+                    showMessage("dados atualizados.", false);
+                }
+            } catch (error) {
+                showMessage(error instanceof TypeError
+                    ? "não foi possível contactar o servidor. verifica a ligação e tente novamente."
+                    : error.message, true);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        async function loadParcels(station) {
+            const state = stateSelect.value;
+            let url = "/api/operator/parcels";
+            const query = new URLSearchParams();
+            if (station) query.set("stationId", station);
+            if (state) query.set("state", state);
+            if (query.toString()) url += "?" + query.toString();
+
+            const parcels = await request(url);
+            renderParcels(parcelsBody, parcels, "Não existem encomendas para os filtros indicados.");
+        }
+
+        async function loadExpired(station) {
+            let url = "/api/operator/parcels/expired";
+            if (station) url += "?stationId=" + encodeURIComponent(station);
+
+            const parcels = await request(url);
+            renderParcels(expiredBody, parcels, "Sem encomendas expiradas para mostrar.", true);
+        }
+
+        async function loadCompartments(station) {
+            if (!station) {
+                renderEmpty(compartmentsBody, 4, "Indique uma estação para ver os compartimentos.");
+                return;
+            }
+
+            const compartments = await request(
+                `/api/operator/stations/${encodeURIComponent(station)}/compartments`);
+            renderCompartments(compartments);
+        }
+
+        function renderParcels(tbody, parcels, emptyMessage, withRemove) {
+            tbody.replaceChildren();
+
+            if (!Array.isArray(parcels) || parcels.length === 0) {
+                renderEmpty(tbody, withRemove ? 5 : 7, emptyMessage);
+                return;
+            }
+
+            for (const parcel of parcels) {
+                const row = document.createElement("tr");
+                appendCell(row, parcel.trackingCode);
+                if (!withRemove) {
+                    appendCell(row, parcel.currentState, "state");
+                }
+                appendCell(row, parcel.compartmentSize);
+                appendCell(row, parcel.assignedCompartmentCode || "—");
+                if (!withRemove) {
+                    appendCell(row, parcel.partnerId || "—");
+                }
+                appendCell(row, parcel.recipientContact || "—");
+
+                const actionCell = document.createElement("td");
+                if (withRemove && parcel.currentState === "EXPIRED") {
+                    actionCell.appendChild(removeButton(parcel.trackingCode));
+                } else {
+                    actionCell.textContent = "—";
+                }
+                row.appendChild(actionCell);
+                tbody.appendChild(row);
+            }
+        }
+
+        function renderCompartments(compartments) {
+            compartmentsBody.replaceChildren();
+
+            if (!Array.isArray(compartments) || compartments.length === 0) {
+                renderEmpty(compartmentsBody, 4, "A estação não tem compartimentos.");
+                return;
+            }
+
+            for (const compartment of compartments) {
+                const row = document.createElement("tr");
+                appendCell(row, compartment.code);
+                appendCell(row, compartment.size);
+                appendStatusCell(row, compartment.status);
+
+                const actionCell = document.createElement("td");
+                if (compartment.status === "FREE") {
+                    actionCell.appendChild(compartmentButton(
+                        compartment, "out-of-service", "Fora de serviço", "danger"));
+                } else if (compartment.status === "OUT_OF_SERVICE") {
+                    actionCell.appendChild(compartmentButton(
+                        compartment, "in-service", "Voltar ao serviço", "secondary"));
+                } else {
+                    actionCell.textContent = "—";
+                    actionCell.title = "Só é possível alterar compartimentos livres ou fora de serviço.";
+                }
+                row.appendChild(actionCell);
+                compartmentsBody.appendChild(row);
+            }
+        }
+
+        function removeButton(trackingCode) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "danger small";
+            button.textContent = "Remover";
+            button.addEventListener("click", async () => {
+                try {
+                    const actor = requireActor();
+                    setButtonLoading(button, true, "Remover");
+                    await request(
+                        `/api/operator/parcels/${encodeURIComponent(trackingCode)}/remove?actor=${encodeURIComponent(actor)}`,
+                        { method: "POST" });
+                    showMessage(`encomenda ${trackingCode} removida e compartimento libertado.`, false);
+                    await refreshAll(false);
+                } catch (error) {
+                    showMessage(error.message, true);
+                    setButtonLoading(button, false, "Remover");
+                }
+            });
+            return button;
+        }
+
+        function compartmentButton(compartment, action, label, style) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = `${style} small`;
+            button.textContent = label;
+            button.addEventListener("click", async () => {
+                try {
+                    const actor = requireActor();
+                    const station = stationInput.value.trim();
+                    setButtonLoading(button, true, label);
+                    await request(
+                        `/api/operator/stations/${encodeURIComponent(station)}/compartments/${encodeURIComponent(compartment.code)}/${action}?actor=${encodeURIComponent(actor)}`,
+                        { method: "POST" });
+                    showMessage(
+                        action === "out-of-service"
+                            ? `compartimento ${compartment.code} colocado fora de serviço.`
+                            : `compartimento ${compartment.code} de volta ao serviço.`,
+                        false);
+                    await refreshAll(false);
+                } catch (error) {
+                    showMessage(error.message, true);
+                    setButtonLoading(button, false, label);
+                }
+            });
+            return button;
+        }
+
+        function appendCell(row, value, className) {
+            const cell = document.createElement("td");
+            cell.textContent = value;
+            if (className) {
+                cell.className = className;
+            }
+            row.appendChild(cell);
+        }
+
+        function appendStatusCell(row, status) {
+            const cell = document.createElement("td");
+            const badge = document.createElement("span");
+            badge.className = "status-badge";
+            if (status === "OUT_OF_SERVICE") {
+                badge.classList.add("out-of-service");
+            } else if (status === "OCCUPIED") {
+                badge.classList.add("occupied");
+            }
+            badge.textContent = status;
+            cell.appendChild(badge);
+            row.appendChild(cell);
+        }
+
+        function renderEmpty(tbody, colspan, message) {
+            tbody.replaceChildren();
+            const row = document.createElement("tr");
+            const cell = document.createElement("td");
+            cell.className = "empty";
+            cell.colSpan = colspan;
+            cell.textContent = message;
+            row.appendChild(cell);
+            tbody.appendChild(row);
+        }
+
+        function requireActor() {
+            const actor = actorInput.value.trim();
+            if (!actor) {
+                throw new Error("indique o identificador do operador.");
+            }
+            return actor;
+        }
+
+        async function request(url, options) {
+            const response = await fetch(url, options);
+            const payload = await response.json().catch(() => null);
+            if (!response.ok) {
+                throw new Error((payload && payload.message)
+                    || `a operação falhou (erro ${response.status}).`);
+            }
+            return payload;
+        }
+
+        function showMessage(message, isError) {
+            statusMessage.textContent = message;
+            statusMessage.className = isError ? "message error" : "message success";
+            statusMessage.hidden = false;
+        }
+
+        function setLoading(loading) {
+            refreshButton.disabled = loading;
+            refreshButton.textContent = loading ? "a atualizar..." : "Atualizar";
+            form.setAttribute("aria-busy", String(loading));
+        }
+
+        function setButtonLoading(button, loading, label) {
+            button.disabled = loading;
+            button.textContent = loading ? "a processar..." : label;
+        }
+    </script>
+</body>
+</html>
