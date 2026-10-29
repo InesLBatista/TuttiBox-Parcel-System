@@ -50,4 +50,23 @@ public class Compartment {
         if (status == CompartmentStatus.OUT_OF_SERVICE) return; 
         status = CompartmentStatus.FREE;
     }
+
+    public void putOutOfService() {
+        if (status == CompartmentStatus.OUT_OF_SERVICE) {
+            return;
+        }
+        if (status != CompartmentStatus.FREE) {
+            throw new IllegalStateException(
+                "compartimento " + code + " não pode ficar fora de serviço enquanto está " + status);
+        }
+        status = CompartmentStatus.OUT_OF_SERVICE;
+    }
+
+    public void putInService() {
+        if (status != CompartmentStatus.OUT_OF_SERVICE) {
+            throw new IllegalStateException(
+                "compartimento " + code + " não está fora de serviço (" + status + ")");
+        }
+        status = CompartmentStatus.FREE;
+    }
 }

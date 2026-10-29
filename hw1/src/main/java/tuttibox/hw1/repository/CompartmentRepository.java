@@ -52,4 +52,17 @@ public interface CompartmentRepository extends JpaRepository<Compartment, Long> 
     );
 
     Optional<Compartment> findByStationCodeAndCode(String stationCode, String compartmentCode);
+
+    List<Compartment> findByStation_CodeOrderByCodeAsc(String stationCode);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+        SELECT c FROM Compartment c
+        WHERE c.station.code = :stationCode
+          AND c.code = :compartmentCode
+        """)
+    Optional<Compartment> findByStationCodeAndCodeForUpdate(
+        @Param("stationCode") String stationCode,
+        @Param("compartmentCode") String compartmentCode
+    );
 }

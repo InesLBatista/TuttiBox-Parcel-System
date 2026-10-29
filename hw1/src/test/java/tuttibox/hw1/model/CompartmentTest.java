@@ -82,4 +82,68 @@ class CompartmentTest {
         compartment.release();
         assertThat(compartment.getStatus()).isEqualTo(CompartmentStatus.OUT_OF_SERVICE);
     }
+
+    @Test
+    @DisplayName("putOutOfService passa um compartimento FREE para OUT_OF_SERVICE")
+    void testPutFreeCompartmentOutOfService() {
+        compartment.putOutOfService();
+
+        assertThat(compartment.getStatus()).isEqualTo(CompartmentStatus.OUT_OF_SERVICE);
+    }
+
+    @Test
+    @DisplayName("putOutOfService é idempotente para um compartimento já fora de serviço")
+    void testPutOutOfServiceWhenAlreadyOutOfService() {
+        compartment.putOutOfService();
+        compartment.putOutOfService();
+
+        assertThat(compartment.getStatus()).isEqualTo(CompartmentStatus.OUT_OF_SERVICE);
+    }
+
+    @Test
+    @DisplayName("putOutOfService falha quando o compartimento tem uma encomenda")
+    void testPutReservedCompartmentOutOfService() {
+        compartment.reserve();
+
+        assertThatThrownBy(() -> compartment.putOutOfService())
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("C-M1")
+            .hasMessageContaining("RESERVED");
+
+        assertThat(compartment.getStatus()).isEqualTo(CompartmentStatus.RESERVED);
+    }
+
+    @Test
+    @DisplayName("putOutOfService falha quando o compartimento está ocupado")
+    void testPutOccupiedCompartmentOutOfService() {
+        compartment.reserve();
+        compartment.occupy();
+
+        assertThatThrownBy(() -> compartment.putOutOfService())
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("OCCUPIED");
+
+        assertThat(compartment.getStatus()).isEqualTo(CompartmentStatus.OCCUPIED);
+    }
+
+    @Test
+    @DisplayName("putInService devolve um compartimento OUT_OF_SERVICE a FREE")
+    void testPutCompartmentInService() {
+        compartment.putOutOfService();
+
+        compartment.putInService();
+
+        assertThat(compartment.getStatus()).isEqualTo(CompartmentStatus.FREE);
+    }
+
+    @Test
+    @DisplayName("putInService falha quando o compartimento não está fora de serviço")
+    void testPutFreeCompartmentInService() {
+        assertThatThrownBy(() -> compartment.putInService())
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("não está fora de serviço")
+            .hasMessageContaining("FREE");
+
+        assertThat(compartment.getStatus()).isEqualTo(CompartmentStatus.FREE);
+    }
 }

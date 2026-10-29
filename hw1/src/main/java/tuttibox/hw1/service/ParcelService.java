@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.persistence.EntityNotFoundException;
+import tuttibox.hw1.dto.CompartmentResponseDto;
 import tuttibox.hw1.dto.ParcelRequestDto;
 import tuttibox.hw1.dto.ParcelResponseDto;
 import tuttibox.hw1.exception.InvalidTransitionException;
@@ -175,6 +176,7 @@ public class ParcelService {
 
     @Transactional
     public Parcel processParcelCancellation(String trackingCode, String actor) {
+        requireActor(actor);
         Parcel parcel = findByTrackingCode(trackingCode);
         parcel.cancel(actor);
 
@@ -191,6 +193,7 @@ public class ParcelService {
 
     @Transactional
     public Parcel processParcelExpiration(String trackingCode, String actor) {
+        requireActor(actor);
         Parcel parcel = findByTrackingCode(trackingCode);
         parcel.expire(actor);
         return parcelRepository.save(parcel);
@@ -198,9 +201,91 @@ public class ParcelService {
 
     @Transactional
     public Parcel processParcelReturn(String trackingCode, String actor) {
+        requireActor(actor);
         Parcel parcel = findByTrackingCode(trackingCode);
         parcel.returnParcel(actor);
+        releaseAssignedCompartment(parcel);
         return parcelRepository.save(parcel);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ParcelResponseDto> listParcels(String stationCode, ParcelState state) {
+        List<Parcel> parcels;
+        if (stationCode != null && !stationCode.isBlank()) {
+            stationRepository.findByCode(stationCode)
+                .orElseThrow(() -> new EntityNotFoundException("estação não encontrada: " + stationCode));
+            parcels = state == null
+                ? parcelRepository.findByStation_CodeOrderByIdAsc(stationCode)
+                : parcelRepository.findByStation_CodeAndCurrentStateOrderByIdAsc(stationCode, state);
+        } else {
+            parcels = state == null
+                ? parcelRepository.findAllByOrderByIdAsc()
+                : parcelRepository.findByCurrentStateOrderByIdAsc(state);
+        }
+
+        log.debug("operação de supervisão: listagem de encomendas estação={}, estado={}, total={}",
+            stationCode, state, parcels.size());
+
+        return parcels.stream().map(ParcelResponseDto::from).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ParcelResponseDto> listExpiredParcels(String stationCode) {
+        return listParcels(stationCode, ParcelState.EXPIRED);
+    }
+
+    @Transactional
+    public ParcelResponseDto removeExpiredParcel(String trackingCode, String actor) {
+        requireActor(actor);
+        Parcel parcel = findByTrackingCode(trackingCode);
+        parcel.returnParcel(actor);
+        Compartment compartment = releaseAssignedCompartment(parcel);
+        Parcel saved = parcelRepository.save(parcel);
+
+        log.info("operação de supervisão: encomenda removida trackingCode={}, compartimento={}, ator={}",
+            saved.getTrackingCode(),
+            compartment != null ? compartment.getCode() : null,
+            actor);
+
+        return ParcelResponseDto.from(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CompartmentResponseDto> listCompartments(String stationCode) {
+        stationRepository.findByCode(stationCode)
+            .orElseThrow(() -> new EntityNotFoundException("estação não encontrada: " + stationCode));
+
+        return compartmentRepository.findByStation_CodeOrderByCodeAsc(stationCode).stream()
+            .map(CompartmentResponseDto::from)
+            .toList();
+    }
+
+    @Transactional
+    public CompartmentResponseDto putCompartmentOutOfService(
+            String stationCode, String compartmentCode, String actor) {
+        requireActor(actor);
+        Compartment compartment = findCompartmentForUpdate(stationCode, compartmentCode);
+        compartment.putOutOfService();
+        Compartment saved = compartmentRepository.save(compartment);
+
+        log.info("operação de supervisão: compartimento fora de serviço estação={}, compartimento={}, ator={}",
+            stationCode, compartmentCode, actor);
+
+        return CompartmentResponseDto.from(saved);
+    }
+
+    @Transactional
+    public CompartmentResponseDto putCompartmentInService(
+            String stationCode, String compartmentCode, String actor) {
+        requireActor(actor);
+        Compartment compartment = findCompartmentForUpdate(stationCode, compartmentCode);
+        compartment.putInService();
+        Compartment saved = compartmentRepository.save(compartment);
+
+        log.info("operação de supervisão: compartimento de volta ao serviço estação={}, compartimento={}, ator={}",
+            stationCode, compartmentCode, actor);
+
+        return CompartmentResponseDto.from(saved);
     }
 
     @Transactional(readOnly = true)
@@ -224,6 +309,30 @@ public class ParcelService {
 
     private IllegalArgumentException invalidPickupCode() {
         return new IllegalArgumentException("código de recolha inválido");
+    }
+
+    private Compartment releaseAssignedCompartment(Parcel parcel) {
+        Compartment compartment = parcel.getAssignedCompartment();
+        if (compartment == null) {
+            return null;
+        }
+        compartment.release();
+        compartmentRepository.save(compartment);
+        log.info("compartimento libertado: trackingCode={}, compartimento={}",
+            parcel.getTrackingCode(), compartment.getCode());
+        return compartment;
+    }
+
+    private Compartment findCompartmentForUpdate(String stationCode, String compartmentCode) {
+        return compartmentRepository.findByStationCodeAndCodeForUpdate(stationCode, compartmentCode)
+            .orElseThrow(() -> new EntityNotFoundException(
+                "compartimento não encontrado: " + compartmentCode + " na estação " + stationCode));
+    }
+
+    private void requireActor(String actor) {
+        if (actor == null || actor.isBlank()) {
+            throw new IllegalArgumentException("o ator é obrigatório");
+        }
     }
 
     private Compartment resolveAssignedCompartment(Parcel parcel) {
