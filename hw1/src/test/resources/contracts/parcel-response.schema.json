@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "parcel-response.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "trackingCode",
+    "recipientContact",
+    "compartmentSize",
+    "partnerId",
+    "currentState",
+    "assignedCompartmentCode",
+    "assignedStationCode"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "trackingCode": {
+      "type": "string",
+      "pattern": "^TRK-[A-Z0-9]{8}$"
+    },
+    "recipientContact": {
+      "type": "string",
+      "minLength": 1
+    },
+    "compartmentSize": {
+      "type": "string",
+      "enum": ["S", "M", "L"]
+    },
+    "partnerId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "currentState": {
+      "type": "string",
+      "enum": ["CREATED", "READY_FOR_PICKUP", "CANCELLED", "PICKED_UP", "EXPIRED", "RETURNED"]
+    },
+    "assignedCompartmentCode": {
+      "type": ["string", "null"]
+    },
+    "assignedStationCode": {
+      "type": ["string", "null"]
+    }
+  }
+}

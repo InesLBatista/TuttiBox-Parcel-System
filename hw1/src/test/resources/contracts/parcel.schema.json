@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "parcel.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "trackingCode",
+    "recepientContact",
+    "compartmentSize",
+    "partnerId",
+    "registeredAt",
+    "dropOffDeadline",
+    "pickupDeadline",
+    "currentState",
+    "transitions"
+  ],
+  "properties": {
+    "id": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "trackingCode": {
+      "type": "string",
+      "pattern": "^TRK-[A-Z0-9]{8}$"
+    },
+    "recepientContact": {
+      "type": "string",
+      "minLength": 1
+    },
+    "compartmentSize": {
+      "type": "string",
+      "enum": ["S", "M", "L"]
+    },
+    "partnerId": {
+      "type": ["string", "null"]
+    },
+    "registeredAt": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "dropOffDeadline": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "pickupDeadline": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "currentState": {
+      "type": "string",
+      "enum": ["CREATED", "READY_FOR_PICKUP", "CANCELLED", "PICKED_UP", "EXPIRED", "RETURNED"]
+    },
+    "transitions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/transition"
+      }
+    }
+  },
+  "$defs": {
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "fromState", "toState", "actor", "timeStamp"],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "fromState": {
+          "type": ["string", "null"],
+          "enum": ["CREATED", "READY_FOR_PICKUP", "CANCELLED", "PICKED_UP", "EXPIRED", "RETURNED", null]
+        },
+        "toState": {
+          "type": "string",
+          "enum": ["CREATED", "READY_FOR_PICKUP", "CANCELLED", "PICKED_UP", "EXPIRED", "RETURNED"]
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "timeStamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}

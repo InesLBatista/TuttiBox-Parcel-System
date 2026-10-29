@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "parcel-transition.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "fromState", "toState", "actor", "timeStamp"],
+  "properties": {
+    "id": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "fromState": {
+      "type": ["string", "null"],
+      "enum": ["CREATED", "READY_FOR_PICKUP", "CANCELLED", "PICKED_UP", "EXPIRED", "RETURNED", null]
+    },
+    "toState": {
+      "type": "string",
+      "enum": ["CREATED", "READY_FOR_PICKUP", "CANCELLED", "PICKED_UP", "EXPIRED", "RETURNED"]
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timeStamp": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
