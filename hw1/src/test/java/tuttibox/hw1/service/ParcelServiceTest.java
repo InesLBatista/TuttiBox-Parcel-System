@@ -77,7 +77,7 @@ class ParcelServiceTest {
     @DisplayName("dropoff abre hardware e mantém parcel em CREATED até confirmação de fecho") 
     void testDropOffOpensCompartment() {
         Parcel parcel = parcelWithAssignedCompartment("TEST999", "user@example.com", "S", "COMP_S1", "STATION_01");
-        when(parcelRepositoryMock.findByTrackingCode("TEST999")).thenReturn(Optional.of(parcel));
+        when(parcelRepositoryMock.findByTrackingCodeForUpdate("TEST999")).thenReturn(Optional.of(parcel));
 
         Parcel result = parcelService.processCourierDropOff(
             "TEST999", "STATION_01", "COMP_S1", "COURIER_01");
@@ -96,7 +96,7 @@ class ParcelServiceTest {
     void testConfirmDropOffWithClosedDoor() {
         Parcel parcel = parcelWithAssignedCompartment("TEST995", "user@example.com", "S", "COMP_S1", "STATION_01");
         Compartment compartment = parcel.getAssignedCompartment();
-        when(parcelRepositoryMock.findByTrackingCode("TEST995")).thenReturn(Optional.of(parcel));
+        when(parcelRepositoryMock.findByTrackingCodeForUpdate("TEST995")).thenReturn(Optional.of(parcel));
         when(parcelRepositoryMock.save(any(Parcel.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(hardwarePortMock.isDoorClosed("STATION_01", "COMP_S1")).thenReturn(true);
 
@@ -121,7 +121,7 @@ class ParcelServiceTest {
     @DisplayName("confirmação com porta ainda aberta não transiciona nem emite código")
     void testConfirmDropOffWithOpenDoor() {
         Parcel parcel = parcelWithAssignedCompartment("TEST994", "user@example.com", "S", "COMP_S1", "STATION_01");
-        when(parcelRepositoryMock.findByTrackingCode("TEST994")).thenReturn(Optional.of(parcel));
+        when(parcelRepositoryMock.findByTrackingCodeForUpdate("TEST994")).thenReturn(Optional.of(parcel));
         when(hardwarePortMock.isDoorClosed("STATION_01", "COMP_S1")).thenReturn(false);
 
         assertThatThrownBy(() ->
@@ -143,7 +143,7 @@ class ParcelServiceTest {
     @DisplayName("falha ao confirmar fecho não transiciona nem emite código")
     void testConfirmDropOffHardwareCloseFailure() {
         Parcel parcel = parcelWithAssignedCompartment("TEST993", "user@example.com", "S", "COMP_S1", "STATION_01");
-        when(parcelRepositoryMock.findByTrackingCode("TEST993")).thenReturn(Optional.of(parcel));
+        when(parcelRepositoryMock.findByTrackingCodeForUpdate("TEST993")).thenReturn(Optional.of(parcel));
         doThrow(new HardwareException("hardware failure: failed to confirm closing"))
             .when(hardwarePortMock).confirmDoorClosed("STATION_01", "COMP_S1");
 
@@ -166,7 +166,7 @@ class ParcelServiceTest {
     void testDropOffAlreadyReadyParcelRejected() {
         Parcel parcel = new Parcel("TEST992", "user@example.com", "S");
         parcel.markAsReadyForPickup("COURIER_01");
-        when(parcelRepositoryMock.findByTrackingCode("TEST992")).thenReturn(Optional.of(parcel));
+        when(parcelRepositoryMock.findByTrackingCodeForUpdate("TEST992")).thenReturn(Optional.of(parcel));
 
         assertThatThrownBy(() ->
             parcelService.processCourierDropOff("TEST992", "STATION_01", "COMP_S1", "COURIER_01")
@@ -180,7 +180,7 @@ class ParcelServiceTest {
     void testConfirmAlreadyReadyParcelRejected() {
         Parcel parcel = new Parcel("TEST991", "user@example.com", "S");
         parcel.markAsReadyForPickup("COURIER_01");
-        when(parcelRepositoryMock.findByTrackingCode("TEST991")).thenReturn(Optional.of(parcel));
+        when(parcelRepositoryMock.findByTrackingCodeForUpdate("TEST991")).thenReturn(Optional.of(parcel));
 
         assertThatThrownBy(() ->
             parcelService.confirmCourierDropOff("TEST991", "STATION_01", "COMP_S1", "COURIER_01")
@@ -192,7 +192,7 @@ class ParcelServiceTest {
     @Test
     @DisplayName("confirmação de encomenda inexistente lança EntityNotFoundException")
     void testConfirmDropOffUnknownParcel() {
-        when(parcelRepositoryMock.findByTrackingCode("MISSING")).thenReturn(Optional.empty());
+        when(parcelRepositoryMock.findByTrackingCodeForUpdate("MISSING")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() ->
             parcelService.confirmCourierDropOff("MISSING", "STATION_01", "COMP_S1", "COURIER_01")
@@ -207,7 +207,7 @@ class ParcelServiceTest {
     void testDropOffSizeMismatch() {
         Parcel parcel = parcelWithAssignedCompartment(
             "TEST998", "user@example.com", "L", "COMP_S1", "S", "STATION_01");
-        when(parcelRepositoryMock.findByTrackingCode("TEST998")).thenReturn(Optional.of(parcel));
+        when(parcelRepositoryMock.findByTrackingCodeForUpdate("TEST998")).thenReturn(Optional.of(parcel));
 
         assertThatThrownBy(() ->
             parcelService.processCourierDropOff("TEST998", "STATION_01", "COMP_S1", "COURIER_01")
@@ -224,7 +224,7 @@ class ParcelServiceTest {
     @Test
     @DisplayName("dropoff de encomenda inexistente lança EntityNotFoundException")
     void testDropOffUnknownParcel() {
-        when(parcelRepositoryMock.findByTrackingCode("MISSING")).thenReturn(Optional.empty());
+        when(parcelRepositoryMock.findByTrackingCodeForUpdate("MISSING")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() ->
             parcelService.processCourierDropOff("MISSING", "STATION_01", "COMP_S1", "COURIER_01")
@@ -239,7 +239,7 @@ class ParcelServiceTest {
     void testDropOffUsesAssignedCompartmentSize() {
         Parcel parcel = parcelWithAssignedCompartment(
             "TEST997", "user@example.com", "S", "COMP_123", "M", "STATION_01");
-        when(parcelRepositoryMock.findByTrackingCode("TEST997")).thenReturn(Optional.of(parcel));
+        when(parcelRepositoryMock.findByTrackingCodeForUpdate("TEST997")).thenReturn(Optional.of(parcel));
 
         Parcel result = parcelService.processCourierDropOff(
             "TEST997", "STATION_01", "COMP_123", "COURIER_01");
@@ -253,7 +253,7 @@ class ParcelServiceTest {
     @DisplayName("dropoff rejeita um compartimento diferente do atribuído")
     void testDropOffRejectsDifferentCompartment() {
         Parcel parcel = parcelWithAssignedCompartment("TEST988", "user@example.com", "S", "COMP_S1", "STATION_01");
-        when(parcelRepositoryMock.findByTrackingCode("TEST988")).thenReturn(Optional.of(parcel));
+        when(parcelRepositoryMock.findByTrackingCodeForUpdate("TEST988")).thenReturn(Optional.of(parcel));
 
         assertThatThrownBy(() ->
             parcelService.processCourierDropOff("TEST988", "STATION_01", "COMP_S2", "COURIER_01")
@@ -268,7 +268,7 @@ class ParcelServiceTest {
     @DisplayName("confirmação rejeita um compartimento diferente do atribuído")
     void testConfirmDropOffRejectsDifferentCompartment() {
         Parcel parcel = parcelWithAssignedCompartment("TEST987", "user@example.com", "S", "COMP_S1", "STATION_01");
-        when(parcelRepositoryMock.findByTrackingCode("TEST987")).thenReturn(Optional.of(parcel));
+        when(parcelRepositoryMock.findByTrackingCodeForUpdate("TEST987")).thenReturn(Optional.of(parcel));
 
         assertThatThrownBy(() ->
             parcelService.confirmCourierDropOff("TEST987", "STATION_01", "COMP_S2", "COURIER_01")
@@ -285,7 +285,7 @@ class ParcelServiceTest {
     @DisplayName("dropoff de encomenda sem compartimento atribuído é rejeitado")
     void testDropOffWithoutAssignedCompartment() {
         Parcel parcel = new Parcel("TEST986", "user@example.com", "S");
-        when(parcelRepositoryMock.findByTrackingCode("TEST986")).thenReturn(Optional.of(parcel));
+        when(parcelRepositoryMock.findByTrackingCodeForUpdate("TEST986")).thenReturn(Optional.of(parcel));
 
         assertThatThrownBy(() ->
             parcelService.processCourierDropOff("TEST986", "STATION_01", "COMP_S1", "COURIER_01")
@@ -300,7 +300,7 @@ class ParcelServiceTest {
     @DisplayName("confirmação sem compartimento atribuído é rejeitada")
     void testConfirmDropOffWithoutAssignedCompartment() {
         Parcel parcel = new Parcel("TEST985", "user@example.com", "S");
-        when(parcelRepositoryMock.findByTrackingCode("TEST985")).thenReturn(Optional.of(parcel));
+        when(parcelRepositoryMock.findByTrackingCodeForUpdate("TEST985")).thenReturn(Optional.of(parcel));
 
         assertThatThrownBy(() ->
             parcelService.confirmCourierDropOff("TEST985", "STATION_01", "COMP_S1", "COURIER_01")
@@ -443,7 +443,7 @@ class ParcelServiceTest {
         Parcel parcel = new Parcel("TEST993", "user@example.com", "M");
         parcel.setStation(station);
         parcel.setAssignedCompartment(compartment);
-        when(parcelRepositoryMock.findByTrackingCode("TEST993")).thenReturn(Optional.of(parcel));
+        when(parcelRepositoryMock.findByTrackingCodeForUpdate("TEST993")).thenReturn(Optional.of(parcel));
         when(parcelRepositoryMock.save(any(Parcel.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Parcel result = parcelService.processParcelCancellation("TEST993", "PARTNER_01");
@@ -457,7 +457,7 @@ class ParcelServiceTest {
     @DisplayName("cancelamento sem compartimento associado não interage com o repositório de compartimentos")
     void testCancellationWithoutCompartment() {
         Parcel parcel = new Parcel("TEST992", "user@example.com", "S");
-        when(parcelRepositoryMock.findByTrackingCode("TEST992")).thenReturn(Optional.of(parcel));
+        when(parcelRepositoryMock.findByTrackingCodeForUpdate("TEST992")).thenReturn(Optional.of(parcel));
         when(parcelRepositoryMock.save(any(Parcel.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Parcel result = parcelService.processParcelCancellation("TEST992", "PARTNER_01");
@@ -475,7 +475,7 @@ class ParcelServiceTest {
         Parcel parcel = new Parcel("TEST991", "user@example.com", "M");
         parcel.setAssignedCompartment(compartment);
         parcel.markAsReadyForPickup("COURIER_01");
-        when(parcelRepositoryMock.findByTrackingCode("TEST991")).thenReturn(Optional.of(parcel));
+        when(parcelRepositoryMock.findByTrackingCodeForUpdate("TEST991")).thenReturn(Optional.of(parcel));
 
         assertThatThrownBy(() -> parcelService.processParcelCancellation("TEST991", "PARTNER_01"))
             .isInstanceOf(InvalidTransitionException.class);
@@ -489,7 +489,7 @@ class ParcelServiceTest {
     void testParcelExpiration() {
         Parcel parcel = new Parcel("TEST990", "user@example.com", "S");
         parcel.markAsReadyForPickup("COURIER_01");
-        when(parcelRepositoryMock.findByTrackingCode("TEST990")).thenReturn(Optional.of(parcel));
+        when(parcelRepositoryMock.findByTrackingCodeForUpdate("TEST990")).thenReturn(Optional.of(parcel));
         when(parcelRepositoryMock.save(any(Parcel.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Parcel result = parcelService.processParcelExpiration("TEST990", "SYSTEM");
@@ -503,7 +503,7 @@ class ParcelServiceTest {
         Parcel parcel = new Parcel("TEST989", "user@example.com", "S");
         parcel.markAsReadyForPickup("COURIER_01");
         parcel.expire("SYSTEM");
-        when(parcelRepositoryMock.findByTrackingCode("TEST989")).thenReturn(Optional.of(parcel));
+        when(parcelRepositoryMock.findByTrackingCodeForUpdate("TEST989")).thenReturn(Optional.of(parcel));
         when(parcelRepositoryMock.save(any(Parcel.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Parcel result = parcelService.processParcelReturn("TEST989", "OPERATOR");
@@ -517,7 +517,7 @@ class ParcelServiceTest {
         Parcel parcel = parcelWithAssignedCompartment(
             "TEST988", "user@example.com", "S", "COMP_S1", "STATION_01");
         parcel.setDropOffDeadline(NOW.minusSeconds(1));
-        when(parcelRepositoryMock.findByTrackingCode("TEST988")).thenReturn(Optional.of(parcel));
+        when(parcelRepositoryMock.findByTrackingCodeForUpdate("TEST988")).thenReturn(Optional.of(parcel));
 
         assertThatThrownBy(() ->
             parcelService.processCourierDropOff("TEST988", "STATION_01", "COMP_S1", "COURIER_01")
@@ -535,7 +535,7 @@ class ParcelServiceTest {
         Parcel parcel = parcelWithAssignedCompartment(
             "TEST987", "user@example.com", "S", "COMP_S1", "STATION_01");
         parcel.setDropOffDeadline(NOW);
-        when(parcelRepositoryMock.findByTrackingCode("TEST987")).thenReturn(Optional.of(parcel));
+        when(parcelRepositoryMock.findByTrackingCodeForUpdate("TEST987")).thenReturn(Optional.of(parcel));
 
         Parcel result = parcelService.processCourierDropOff(
             "TEST987", "STATION_01", "COMP_S1", "COURIER_01");

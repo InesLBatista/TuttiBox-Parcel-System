@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "compartment-response.schema.json",
+  "$id": "https://tuttibox.example/schemas/compartment-response.schema.json",
   "type": "object",
   "additionalProperties": false,
   "required": ["id", "code", "stationCode", "size", "status"],

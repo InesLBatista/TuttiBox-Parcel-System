@@ -8,6 +8,8 @@ import jakarta.persistence.LockModeType;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import tuttibox.hw1.model.Parcel;
@@ -16,6 +18,10 @@ import tuttibox.hw1.model.ParcelState;
 @Repository 
 public interface ParcelRepository extends JpaRepository<Parcel, Long> {
     Optional<Parcel> findByTrackingCode(String trackingCode);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Parcel p WHERE p.trackingCode = :trackingCode")
+    Optional<Parcel> findByTrackingCodeForUpdate(@Param("trackingCode") String trackingCode);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Parcel> findByPickupCodeHash(String pickupCodeHash);

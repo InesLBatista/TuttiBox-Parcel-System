@@ -57,7 +57,7 @@ public class AssertionSteps {
 
     @Then("the response body is {string}")
     public void theResponseBodyIs(String expected) {
-        assertThat(api.body()).isEqualTo(expected);
+        assertThat(api.json().asString()).isEqualTo(expected);
     }
 
     @Then("the error message is {string}")

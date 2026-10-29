@@ -37,9 +37,7 @@ public class Hooks {
         parcelRepository.deleteAll();
         compartmentRepository.deleteAll();
         stationRepository.deleteAll();
-        hardwareFake.setInjectFailure(false);
-        hardwareFake.setInjectCloseFailure(false);
-        hardwareFake.setInjectDoorNotClosed(false);
+        hardwareFake.reset();
         notificationFake.clear();
         geocodingFake.clearFailure();
         state.reset();

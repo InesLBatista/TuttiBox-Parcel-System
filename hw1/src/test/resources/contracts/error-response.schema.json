@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "error-response.schema.json",
+  "$id": "https://tuttibox.example/schemas/error-response.schema.json",
   "type": "object",
   "additionalProperties": false,
   "required": ["timestamp", "status", "error", "message"],

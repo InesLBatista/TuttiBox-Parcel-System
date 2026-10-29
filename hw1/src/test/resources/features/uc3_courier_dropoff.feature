@@ -36,6 +36,7 @@ Feature: UC3 - Courier drop-off
 
   Scenario: Drop-off with a compartment that is too small is rejected
     Given a station "ST-01" named "Estação Central" at 40.6305, -8.6571
+    And a reserved compartment "C-S1" at station "ST-01" of size "S"
     And a parcel "TRK-SMALL" for "client@example.com" with size "L" at station "ST-01" in compartment "C-S1" in state "CREATED"
     When I request drop-off for parcel "TRK-SMALL" at station "ST-01" compartment "C-S1" by courier "COURIER-1"
     Then the response status is 400

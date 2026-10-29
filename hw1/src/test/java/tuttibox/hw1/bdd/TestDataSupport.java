@@ -10,6 +10,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.persistence.EntityNotFoundException;
 import tuttibox.hw1.config.DeadlineProperties;
@@ -144,6 +145,7 @@ public class TestDataSupport {
         parcelRepository.save(parcel);
     }
 
+    @Transactional
     public void expireParcel(String trackingCode) {
         Parcel parcel = requireParcel(trackingCode);
         parcel.expire("SYSTEM");

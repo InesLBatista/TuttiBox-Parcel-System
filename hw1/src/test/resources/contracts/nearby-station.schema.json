@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "nearby-station.schema.json",
+  "$id": "https://tuttibox.example/schemas/nearby-station.schema.json",
   "type": "object",
   "additionalProperties": false,
   "required": [

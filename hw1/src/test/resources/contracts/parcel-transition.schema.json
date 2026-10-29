@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "parcel-transition.schema.json",
+  "$id": "https://tuttibox.example/schemas/parcel-transition.schema.json",
   "type": "object",
   "additionalProperties": false,
   "required": ["id", "fromState", "toState", "actor", "timeStamp"],

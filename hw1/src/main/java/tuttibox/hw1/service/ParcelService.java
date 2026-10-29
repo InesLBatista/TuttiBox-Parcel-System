@@ -111,7 +111,7 @@ public class ParcelService {
 
     @Transactional
     public Parcel processCourierDropOff(String trackingCode, String stationId, String compartmentId, String courierId) {
-        Parcel parcel = findByTrackingCode(trackingCode);
+        Parcel parcel = findParcelForUpdate(trackingCode);
         ensureParcelCanBeDroppedOff(parcel);
         ensureDropOffDeadlineNotExceeded(parcel);
         Compartment compartment = resolveAssignedCompartment(parcel, stationId, compartmentId);
@@ -122,12 +122,12 @@ public class ParcelService {
         log.info("compartimento aberto para drop-off: trackingCode={}, estação={}, compartimento={}, courier={}",
             trackingCode, assignedStation, compartment.getCode(), courierId);
 
-        return parcel;
+        return withInitializedTransitions(parcel);
     }
 
     @Transactional
     public Parcel confirmCourierDropOff(String trackingCode, String stationId, String compartmentId, String courierId) {
-        Parcel parcel = findByTrackingCode(trackingCode);
+        Parcel parcel = findParcelForUpdate(trackingCode);
         ensureParcelCanBeDroppedOff(parcel);
         ensureDropOffDeadlineNotExceeded(parcel);
         Compartment compartment = resolveAssignedCompartment(parcel, stationId, compartmentId);
@@ -154,7 +154,7 @@ public class ParcelService {
         log.info("fecho da porta confirmado, compartimento ocupado e código de recolha emitido: trackingCode={}, estação={}, compartimento={}, destinatário={}",
             saved.getTrackingCode(), assignedStation, compartment.getCode(), saved.getRecepientContact());
 
-        return saved;
+        return withInitializedTransitions(saved);
     }
 
 
@@ -187,18 +187,18 @@ public class ParcelService {
         log.info("pickup concluído e compartimento libertado: trackingCode={}, estação={}, compartimento={}",
             saved.getTrackingCode(), station, compartment.getCode());
 
-        return saved;
+        return withInitializedTransitions(saved);
     }
 
     @Transactional(readOnly = true)
     public List<ParcelTransition> getParcelHistory(String trackingCode) {
-        return findByTrackingCode(trackingCode).getTransitions();
+        return List.copyOf(findByTrackingCode(trackingCode).getTransitions());
     }
 
     @Transactional
     public Parcel processParcelCancellation(String trackingCode, String actor) {
         requireActor(actor);
-        Parcel parcel = findByTrackingCode(trackingCode);
+        Parcel parcel = findParcelForUpdate(trackingCode);
         parcel.cancel(actor);
 
         //libertar o compartimento reservado
@@ -209,24 +209,24 @@ public class ParcelService {
             log.info("Compartimento {} será libertado após cancelamento de {}", c.getCode(), trackingCode);
         }
 
-        return parcelRepository.save(parcel);
+        return withInitializedTransitions(parcelRepository.save(parcel));
     }
 
     @Transactional
     public Parcel processParcelExpiration(String trackingCode, String actor) {
         requireActor(actor);
-        Parcel parcel = findByTrackingCode(trackingCode);
+        Parcel parcel = findParcelForUpdate(trackingCode);
         parcel.expire(actor);
-        return parcelRepository.save(parcel);
+        return withInitializedTransitions(parcelRepository.save(parcel));
     }
 
     @Transactional
     public Parcel processParcelReturn(String trackingCode, String actor) {
         requireActor(actor);
-        Parcel parcel = findByTrackingCode(trackingCode);
+        Parcel parcel = findParcelForUpdate(trackingCode);
         parcel.returnParcel(actor);
         releaseAssignedCompartment(parcel);
-        return parcelRepository.save(parcel);
+        return withInitializedTransitions(parcelRepository.save(parcel));
     }
 
     @Transactional
@@ -340,8 +340,18 @@ public class ParcelService {
 
     @Transactional(readOnly = true)
     public Parcel findByTrackingCode(String trackingCode) { 
-        return parcelRepository.findByTrackingCode(trackingCode) 
+        return withInitializedTransitions(parcelRepository.findByTrackingCode(trackingCode)
+            .orElseThrow(() -> new EntityNotFoundException("encomenda não foi encontrada: " + trackingCode)));
+    }
+
+    private Parcel findParcelForUpdate(String trackingCode) {
+        return parcelRepository.findByTrackingCodeForUpdate(trackingCode)
             .orElseThrow(() -> new EntityNotFoundException("encomenda não foi encontrada: " + trackingCode));
+    }
+
+    private Parcel withInitializedTransitions(Parcel parcel) {
+        parcel.getTransitions().size();
+        return parcel;
     }
 
 

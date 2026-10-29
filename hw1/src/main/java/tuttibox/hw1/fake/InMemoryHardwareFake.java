@@ -15,6 +15,13 @@ public class InMemoryHardwareFake implements HardwarePort {
     private boolean injectDoorNotClosed = false;
     private final Map<String,Boolean> doorStatus = new HashMap<>();
 
+    public void reset() {
+        injectFailure = false;
+        injectCloseFailure = false;
+        injectDoorNotClosed = false;
+        doorStatus.clear();
+    }
+
     public void setInjectFailure(boolean injectFailure) {
         this.injectFailure = injectFailure;
     }

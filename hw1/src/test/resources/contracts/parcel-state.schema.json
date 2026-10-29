@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "parcel-state.schema.json",
+  "$id": "https://tuttibox.example/schemas/parcel-state.schema.json",
   "type": "string",
   "enum": ["CREATED", "READY_FOR_PICKUP", "CANCELLED", "PICKED_UP", "EXPIRED", "RETURNED"]
 }
