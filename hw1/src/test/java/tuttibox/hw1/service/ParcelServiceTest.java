@@ -11,6 +11,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.time.Clock;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
+import tuttibox.hw1.config.DeadlineProperties;
 import tuttibox.hw1.dto.ParcelRequestDto;
 import tuttibox.hw1.dto.ParcelResponseDto;
 import tuttibox.hw1.exception.InvalidTransitionException;
@@ -41,11 +46,15 @@ import tuttibox.hw1.repository.ParcelRepository;
 import tuttibox.hw1.repository.StationRepository;
 
 class ParcelServiceTest {
+    private static final LocalDateTime NOW = LocalDateTime.of(2026, 1, 1, 10, 0);
+    private static final Clock FIXED_CLOCK = Clock.fixed(NOW.toInstant(ZoneOffset.UTC), ZoneOffset.UTC);
+
     private HardwarePort hardwarePortMock;
     private ParcelRepository parcelRepositoryMock;
     private StationRepository stationRepositoryMock;
     private CompartmentRepository compartmentRepositoryMock;
     private NotificationPort notificationPortMock;
+    private DeadlineProperties deadlineProperties;
     private ParcelService parcelService;
 
     @BeforeEach
@@ -55,9 +64,13 @@ class ParcelServiceTest {
         stationRepositoryMock = Mockito.mock(StationRepository.class);
         compartmentRepositoryMock = Mockito.mock(CompartmentRepository.class);
         notificationPortMock = Mockito.mock(NotificationPort.class);
+        deadlineProperties = new DeadlineProperties();
+        deadlineProperties.setDropOff(Duration.ofHours(2));
+        deadlineProperties.setPickup(Duration.ofHours(24));
         parcelService = new ParcelService(
             hardwarePortMock, parcelRepositoryMock,
-            stationRepositoryMock, compartmentRepositoryMock, notificationPortMock);
+            stationRepositoryMock, compartmentRepositoryMock, notificationPortMock,
+            FIXED_CLOCK, deadlineProperties);
     }
 
     @Test 
@@ -96,6 +109,7 @@ class ParcelServiceTest {
         assertThat(compartment.getStatus()).isEqualTo(CompartmentStatus.OCCUPIED);
         assertThat(result.getCurrentState()).isEqualTo(ParcelState.READY_FOR_PICKUP);
         assertThat(result.getPickupCodeHash()).isNotBlank();
+        assertThat(result.getPickupDeadline()).isEqualTo(NOW.plusHours(24));
 
         ArgumentCaptor<String> pickupCode = ArgumentCaptor.forClass(String.class);
         verify(notificationPortMock).sendPickupCode(
@@ -498,6 +512,118 @@ class ParcelServiceTest {
     }
 
     @Test
+    @DisplayName("drop-off depois do prazo é rejeitado sem abrir o compartimento")
+    void testDropOffAfterDeadlineRejected() {
+        Parcel parcel = parcelWithAssignedCompartment(
+            "TEST988", "user@example.com", "S", "COMP_S1", "STATION_01");
+        parcel.setDropOffDeadline(NOW.minusSeconds(1));
+        when(parcelRepositoryMock.findByTrackingCode("TEST988")).thenReturn(Optional.of(parcel));
+
+        assertThatThrownBy(() ->
+            parcelService.processCourierDropOff("TEST988", "STATION_01", "COMP_S1", "COURIER_01")
+        ).isInstanceOf(InvalidTransitionException.class)
+         .hasMessageContaining("prazo de drop-off");
+
+        assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.CREATED);
+        assertThat(parcel.getAssignedCompartment().getStatus()).isEqualTo(CompartmentStatus.RESERVED);
+        verifyNoInteractions(hardwarePortMock, notificationPortMock);
+    }
+
+    @Test
+    @DisplayName("drop-off exatamente no prazo ainda é aceite")
+    void testDropOffAtDeadlineAccepted() {
+        Parcel parcel = parcelWithAssignedCompartment(
+            "TEST987", "user@example.com", "S", "COMP_S1", "STATION_01");
+        parcel.setDropOffDeadline(NOW);
+        when(parcelRepositoryMock.findByTrackingCode("TEST987")).thenReturn(Optional.of(parcel));
+
+        Parcel result = parcelService.processCourierDropOff(
+            "TEST987", "STATION_01", "COMP_S1", "COURIER_01");
+
+        assertThat(result.getCurrentState()).isEqualTo(ParcelState.CREATED);
+        verify(hardwarePortMock).openCompartment("STATION_01", "COMP_S1");
+    }
+
+    @Test
+    @DisplayName("pickup depois do prazo é rejeitado sem abrir o compartimento")
+    void testPickupAfterDeadlineRejected() {
+        String pickupCode = "ABCD2345";
+        Parcel parcel = parcelReadyForPickup(
+            "TEST986", "user@example.com", "S", "COMP_S1", "STATION_01", pickupCode);
+        parcel.setPickupDeadline(NOW.minusSeconds(1));
+        when(parcelRepositoryMock.findByPickupCodeHash(PickupCode.hash(pickupCode)))
+            .thenReturn(Optional.of(parcel));
+
+        assertThatThrownBy(() -> parcelService.processRecipientPickUp(pickupCode))
+            .isInstanceOf(InvalidTransitionException.class)
+            .hasMessageContaining("prazo de recolha");
+
+        assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.READY_FOR_PICKUP);
+        assertThat(parcel.getAssignedCompartment().getStatus()).isEqualTo(CompartmentStatus.OCCUPIED);
+        verifyNoInteractions(hardwarePortMock);
+    }
+
+    @Test
+    @DisplayName("pickup exatamente no prazo ainda é aceite")
+    void testPickupAtDeadlineAccepted() {
+        String pickupCode = "EFGH2345";
+        Parcel parcel = parcelReadyForPickup(
+            "TEST985", "user@example.com", "S", "COMP_S1", "STATION_01", pickupCode);
+        parcel.setPickupDeadline(NOW);
+        when(parcelRepositoryMock.findByPickupCodeHash(PickupCode.hash(pickupCode)))
+            .thenReturn(Optional.of(parcel));
+        when(parcelRepositoryMock.save(any(Parcel.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Parcel result = parcelService.processRecipientPickUp(pickupCode);
+
+        assertThat(result.getCurrentState()).isEqualTo(ParcelState.PICKED_UP);
+        verify(hardwarePortMock).openCompartment("STATION_01", "COMP_S1");
+    }
+
+    @Test
+    @DisplayName("aplicação de deadlines cancela encomendas e liberta compartimentos")
+    void testApplyDeadlinesCancelsParcelAndReleasesCompartment() {
+        Parcel parcel = parcelWithAssignedCompartment(
+            "TEST984", "user@example.com", "S", "COMP_S1", "STATION_01");
+        parcel.setDropOffDeadline(NOW.minusSeconds(1));
+        Compartment compartment = parcel.getAssignedCompartment();
+        when(parcelRepositoryMock.findByCurrentStateAndDropOffDeadlineBefore(ParcelState.CREATED, NOW))
+            .thenReturn(List.of(parcel));
+        when(parcelRepositoryMock.findByCurrentStateAndPickupDeadlineBefore(ParcelState.READY_FOR_PICKUP, NOW))
+            .thenReturn(List.of());
+        when(parcelRepositoryMock.save(any(Parcel.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        parcelService.applyDeadlines();
+
+        assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.CANCELLED);
+        assertThat(compartment.getStatus()).isEqualTo(CompartmentStatus.FREE);
+        verify(compartmentRepositoryMock).save(compartment);
+        verify(parcelRepositoryMock).save(parcel);
+    }
+
+    @Test
+    @DisplayName("aplicação de deadlines expira encomendas e mantém o compartimento ocupado")
+    void testApplyDeadlinesExpiresParcelAndKeepsCompartmentOccupied() {
+        String pickupCode = "IJKL2345";
+        Parcel parcel = parcelReadyForPickup(
+            "TEST983", "user@example.com", "S", "COMP_S1", "STATION_01", pickupCode);
+        parcel.setPickupDeadline(NOW.minusSeconds(1));
+        Compartment compartment = parcel.getAssignedCompartment();
+        when(parcelRepositoryMock.findByCurrentStateAndDropOffDeadlineBefore(ParcelState.CREATED, NOW))
+            .thenReturn(List.of());
+        when(parcelRepositoryMock.findByCurrentStateAndPickupDeadlineBefore(ParcelState.READY_FOR_PICKUP, NOW))
+            .thenReturn(List.of(parcel));
+        when(parcelRepositoryMock.save(any(Parcel.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        parcelService.applyDeadlines();
+
+        assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.EXPIRED);
+        assertThat(compartment.getStatus()).isEqualTo(CompartmentStatus.OCCUPIED);
+        verify(parcelRepositoryMock).save(parcel);
+        verifyNoInteractions(compartmentRepositoryMock);
+    }
+
+    @Test
     @DisplayName("registo falha quando a estação não existe")
     void testRegisterParcelUnknownStation() {
         ParcelRequestDto request = buildRegisterRequest("ST-INEXISTENTE", "S");
@@ -549,7 +675,11 @@ class ParcelServiceTest {
         assertThat(response.assignedCompartmentCode()).isEqualTo("C-M1");
         assertThat(response.assignedStationCode()).isEqualTo("ST-01");
         verify(compartmentRepositoryMock).save(compartment);
-        verify(parcelRepositoryMock).save(any(Parcel.class));
+
+        ArgumentCaptor<Parcel> parcelCaptor = ArgumentCaptor.forClass(Parcel.class);
+        verify(parcelRepositoryMock).save(parcelCaptor.capture());
+        assertThat(parcelCaptor.getValue().getRegisteredAt()).isEqualTo(NOW);
+        assertThat(parcelCaptor.getValue().getDropOffDeadline()).isEqualTo(NOW.plusHours(2));
     }
 
     private ParcelRequestDto buildRegisterRequest(String stationId, String size) {

@@ -1,5 +1,6 @@
 package tuttibox.hw1.repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,4 +27,8 @@ public interface ParcelRepository extends JpaRepository<Parcel, Long> {
     List<Parcel> findByCurrentStateOrderByIdAsc(ParcelState state);
 
     List<Parcel> findByStation_CodeAndCurrentStateOrderByIdAsc(String stationCode, ParcelState state);
+
+    List<Parcel> findByCurrentStateAndDropOffDeadlineBefore(ParcelState state, LocalDateTime now);
+
+    List<Parcel> findByCurrentStateAndPickupDeadlineBefore(ParcelState state, LocalDateTime now);
 }

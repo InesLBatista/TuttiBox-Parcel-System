@@ -1,5 +1,7 @@
 package tuttibox.hw1.service;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
@@ -11,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.persistence.EntityNotFoundException;
+import tuttibox.hw1.config.DeadlineProperties;
 import tuttibox.hw1.dto.CompartmentResponseDto;
 import tuttibox.hw1.dto.ParcelRequestDto;
 import tuttibox.hw1.dto.ParcelResponseDto;
@@ -37,13 +40,24 @@ public class ParcelService {
     private final StationRepository stationRepository;
     private final CompartmentRepository compartmentRepository;
     private final NotificationPort notificationPort;
+    private final Clock clock;
+    private final DeadlineProperties deadlineProperties;
 
-    public ParcelService(HardwarePort hardwarePort, ParcelRepository parcelRepository, StationRepository stationRepository, CompartmentRepository compartmentRepository, NotificationPort notificationPort) {
+    public ParcelService(
+            HardwarePort hardwarePort,
+            ParcelRepository parcelRepository,
+            StationRepository stationRepository,
+            CompartmentRepository compartmentRepository,
+            NotificationPort notificationPort,
+            Clock clock,
+            DeadlineProperties deadlineProperties) {
         this.hardwarePort=hardwarePort;
         this.parcelRepository=parcelRepository;
         this.stationRepository=stationRepository; 
         this.compartmentRepository=compartmentRepository; 
         this.notificationPort=notificationPort;
+        this.clock=clock;
+        this.deadlineProperties=deadlineProperties;
     }
 
 
@@ -76,17 +90,20 @@ public class ParcelService {
         compartmentRepository.save(compartment);
 
         //gerar o tracking code e criar encomenda
+        LocalDateTime registeredAt = LocalDateTime.now(clock);
         String trackingCode = "TRK-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         Parcel parcel = new Parcel(trackingCode, request.getRecipientContact(), request.getCompartmentSize().toUpperCase());
         parcel.setPartnerId(request.getPartnerId());
         parcel.setStation(station);
         parcel.setAssignedCompartment(compartment);
+        parcel.setRegisteredAt(registeredAt);
+        parcel.setDropOffDeadline(registeredAt.plus(deadlineProperties.getDropOff()));
 
         Parcel saved = parcelRepository.save(parcel);
 
-        log.info("encomenda registada: trackingCode={}, estação={}, compartimento={}, tamanho={}, partner={}", 
+        log.info("encomenda registada: trackingCode={}, estação={}, compartimento={}, tamanho={}, partner={}, dropOffDeadline={}", 
             trackingCode, station.getCode(), compartment.getCode(),
-            requestedSize, request.getPartnerId());
+            requestedSize, request.getPartnerId(), parcel.getDropOffDeadline());
 
         return ParcelResponseDto.from(saved);
     }
@@ -96,6 +113,7 @@ public class ParcelService {
     public Parcel processCourierDropOff(String trackingCode, String stationId, String compartmentId, String courierId) {
         Parcel parcel = findByTrackingCode(trackingCode);
         ensureParcelCanBeDroppedOff(parcel);
+        ensureDropOffDeadlineNotExceeded(parcel);
         Compartment compartment = resolveAssignedCompartment(parcel, stationId, compartmentId);
         validateCompartmentSize(parcel, compartment);
 
@@ -111,6 +129,7 @@ public class ParcelService {
     public Parcel confirmCourierDropOff(String trackingCode, String stationId, String compartmentId, String courierId) {
         Parcel parcel = findByTrackingCode(trackingCode);
         ensureParcelCanBeDroppedOff(parcel);
+        ensureDropOffDeadlineNotExceeded(parcel);
         Compartment compartment = resolveAssignedCompartment(parcel, stationId, compartmentId);
         validateCompartmentSize(parcel, compartment);
 
@@ -121,7 +140,8 @@ public class ParcelService {
         }
 
         compartment.occupy();
-        parcel.markAsReadyForPickup(courierId);
+        LocalDateTime dropOffConfirmedAt = LocalDateTime.now(clock);
+        parcel.markAsReadyForPickup(courierId, dropOffConfirmedAt.plus(deadlineProperties.getPickup()));
 
         String pickupCode = PickupCode.generate();
         parcel.issuePickupCode(PickupCode.hash(pickupCode));
@@ -153,6 +173,7 @@ public class ParcelService {
         }
 
         ensureParcelCanBePickedUp(parcel);
+        ensurePickupDeadlineNotExceeded(parcel);
         Compartment compartment = resolveAssignedCompartment(parcel);
         String station = compartment.getStation().getCode();
 
@@ -206,6 +227,35 @@ public class ParcelService {
         parcel.returnParcel(actor);
         releaseAssignedCompartment(parcel);
         return parcelRepository.save(parcel);
+    }
+
+    @Transactional
+    public void applyDeadlines() {
+        LocalDateTime now = LocalDateTime.now(clock);
+
+        List<Parcel> dropOffExpired = parcelRepository
+            .findByCurrentStateAndDropOffDeadlineBefore(ParcelState.CREATED, now);
+        for (Parcel parcel : dropOffExpired) {
+            parcel.cancel("SYSTEM");
+            releaseAssignedCompartment(parcel);
+            parcelRepository.save(parcel);
+            log.info("prazo de drop-off expirado, encomenda cancelada: trackingCode={}, deadline={}",
+                parcel.getTrackingCode(), parcel.getDropOffDeadline());
+        }
+
+        List<Parcel> pickupExpired = parcelRepository
+            .findByCurrentStateAndPickupDeadlineBefore(ParcelState.READY_FOR_PICKUP, now);
+        for (Parcel parcel : pickupExpired) {
+            parcel.expire("SYSTEM");
+            parcelRepository.save(parcel);
+            log.info("prazo de recolha expirado: trackingCode={}, deadline={}",
+                parcel.getTrackingCode(), parcel.getPickupDeadline());
+        }
+
+        if (!dropOffExpired.isEmpty() || !pickupExpired.isEmpty()) {
+            log.info("aplicação de deadlines concluída: canceladas={}, expiradas={}",
+                dropOffExpired.size(), pickupExpired.size());
+        }
     }
 
     @Transactional(readOnly = true)
@@ -304,6 +354,22 @@ public class ParcelService {
     private void ensureParcelCanBePickedUp(Parcel parcel) {
         if (parcel.getCurrentState() != ParcelState.READY_FOR_PICKUP) {
             throw new InvalidTransitionException("não é possível fazer pickup de uma encomenda em " + parcel.getCurrentState());
+        }
+    }
+
+    private void ensureDropOffDeadlineNotExceeded(Parcel parcel) {
+        if (parcel.isDropOffDeadlineExceeded(LocalDateTime.now(clock))) {
+            throw new InvalidTransitionException(
+                "o prazo de drop-off expirou em " + parcel.getDropOffDeadline()
+                    + "; a encomenda será cancelada pelo sistema");
+        }
+    }
+
+    private void ensurePickupDeadlineNotExceeded(Parcel parcel) {
+        if (parcel.isPickupDeadlineExceeded(LocalDateTime.now(clock))) {
+            throw new InvalidTransitionException(
+                "o prazo de recolha expirou em " + parcel.getPickupDeadline()
+                    + "; a encomenda será expirada pelo sistema");
         }
     }
 

@@ -1,5 +1,6 @@
 package tuttibox.hw1.model;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,6 +21,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tuttibox.hw1.exception.InvalidTransitionException;
 
 @Entity 
@@ -27,6 +30,8 @@ import tuttibox.hw1.exception.InvalidTransitionException;
 @Data 
 @NoArgsConstructor 
 public class Parcel {
+    private static final Logger log = LoggerFactory.getLogger(Parcel.class);
+
     @Id 
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -37,6 +42,10 @@ public class Parcel {
     private String recepientContact;
     private String compartmentSize;
     private String partnerId;
+
+    private LocalDateTime registeredAt;
+    private LocalDateTime dropOffDeadline;
+    private LocalDateTime pickupDeadline;
 
     //apenas o hash é guardado; o código em claro só existe na notificação ao destinatário
     @JsonIgnore
@@ -66,19 +75,23 @@ public class Parcel {
         this.trackingCode=trackingCode;
         this.recepientContact=recepientContact;
         this.compartmentSize=compartmentSize;
-        this.currentState=ParcelState.CREATED;
 
-        this.transitions.add(new ParcelTransition(this, null, ParcelState.CREATED, "PARTNER"));
+        transitionTo(ParcelState.CREATED, "PARTNER");
     }
 
 
 
     public void markAsReadyForPickup(String actor) {
+        markAsReadyForPickup(actor, null);
+    }
+
+    public void markAsReadyForPickup(String actor, LocalDateTime pickupDeadline) {
         if (this.currentState != ParcelState.CREATED) {
             throw new InvalidTransitionException(
                 "não é possível a transição de " + this.currentState + " para READY_FOR_PICKUP");
         }
         transitionTo(ParcelState.READY_FOR_PICKUP, actor);
+        this.pickupDeadline = pickupDeadline;
     }
 
     public void issuePickupCode(String pickupCodeHash) {
@@ -121,8 +134,19 @@ public class Parcel {
         transitionTo(ParcelState.RETURNED, actor);
     }
 
+    public boolean isDropOffDeadlineExceeded(LocalDateTime now) {
+        return dropOffDeadline != null && now.isAfter(dropOffDeadline);
+    }
+
+    public boolean isPickupDeadlineExceeded(LocalDateTime now) {
+        return pickupDeadline != null && now.isAfter(pickupDeadline);
+    }
+
     private void transitionTo(ParcelState newState, String actor) {
-        this.transitions.add(new ParcelTransition(this, this.currentState, newState, actor));
-        this.currentState=newState;
+        ParcelState previousState = this.currentState;
+        this.transitions.add(new ParcelTransition(this, previousState, newState, actor));
+        this.currentState = newState;
+        log.info("transição de estado da encomenda: trackingCode={}, de={}, para={}, ator={}",
+            trackingCode, previousState, newState, actor);
     }
 }

@@ -3,6 +3,8 @@ package tuttibox.hw1.model;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.LocalDateTime;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -149,5 +151,36 @@ public class ParcelTest {
 
         assertThat(parcel.getCurrentState()).isEqualTo(ParcelState.READY_FOR_PICKUP);
         assertThat(parcel.getTransitions()).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("prazo de drop-off só é excedido depois do limite")
+    void testDropOffDeadlineBoundary() {
+        LocalDateTime deadline = LocalDateTime.of(2026, 1, 1, 12, 0);
+        parcel.setDropOffDeadline(deadline);
+
+        assertThat(parcel.isDropOffDeadlineExceeded(deadline)).isFalse();
+        assertThat(parcel.isDropOffDeadlineExceeded(deadline.plusSeconds(1))).isTrue();
+        assertThat(parcel.isDropOffDeadlineExceeded(deadline.minusSeconds(1))).isFalse();
+    }
+
+    @Test
+    @DisplayName("prazo de recolha só é excedido depois do limite")
+    void testPickupDeadlineBoundary() {
+        LocalDateTime deadline = LocalDateTime.of(2026, 1, 1, 12, 0);
+        parcel.setPickupDeadline(deadline);
+
+        assertThat(parcel.isPickupDeadlineExceeded(deadline)).isFalse();
+        assertThat(parcel.isPickupDeadlineExceeded(deadline.plusSeconds(1))).isTrue();
+        assertThat(parcel.isPickupDeadlineExceeded(deadline.minusSeconds(1))).isFalse();
+    }
+
+    @Test
+    @DisplayName("encomenda sem prazos definidos nunca os excede")
+    void testMissingDeadlinesAreNotExceeded() {
+        LocalDateTime now = LocalDateTime.of(2026, 1, 1, 12, 0);
+
+        assertThat(parcel.isDropOffDeadlineExceeded(now)).isFalse();
+        assertThat(parcel.isPickupDeadlineExceeded(now)).isFalse();
     }
 }
