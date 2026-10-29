@@ -34,6 +34,14 @@ jobs:
           cache: maven
           cache-dependency-path: hw1/pom.xml
 
+      - name: Install Playwright Chromium
+        run: >-
+          ./mvnw -B -ntp
+          -Dexec.mainClass=com.microsoft.playwright.CLI
+          -Dexec.args="install --with-deps chromium"
+          -Dexec.classpathScope=test
+          exec:java
+
       - name: Build, run the full test suite and enforce coverage gate
         # Runs all Surefire-discovered tests, including Cucumber, contract,
         # usability, integration and concurrency tests. No test groups are excluded.

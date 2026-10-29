@@ -30,6 +30,7 @@
 		<java.version>21</java.version>
 		<cucumber.version>8.0.4</cucumber.version>
 		<json-schema-validator.version>3.0.8</json-schema-validator.version>
+		<playwright.version>1.64.0</playwright.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -110,6 +111,12 @@
 			<version>${json-schema-validator.version}</version>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<groupId>com.microsoft.playwright</groupId>
+			<artifactId>playwright</artifactId>
+			<version>${playwright.version}</version>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 
 	<build>
@@ -125,6 +132,11 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>exec-maven-plugin</artifactId>
+				<version>3.6.4</version>
 			</plugin>
 			<plugin>
 				<groupId>org.jacoco</groupId>
