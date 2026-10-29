@@ -2,7 +2,6 @@ name: CI
 
 on:
   push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -13,11 +12,10 @@ concurrency:
 permissions:
   contents: read
   checks: write
-  pull-requests: write
 
 jobs:
   build-test-analysis:
-    name: Build, tests and coverage
+    name: Build, full test suite and coverage
     runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:
@@ -26,23 +24,25 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
           cache: maven
           cache-dependency-path: hw1/pom.xml
 
-      - name: Build, run tests and enforce coverage gate
-        run: ./mvnw -B clean verify
+      - name: Build, run the full test suite and enforce coverage gate
+        # Runs all Surefire-discovered tests, including Cucumber, contract,
+        # usability, integration and concurrency tests. No test groups are excluded.
+        run: ./mvnw -B -ntp clean verify
 
       - name: Publish JUnit test report
         if: always()
         continue-on-error: true
-        uses: dorny/test-reporter@v1
+        uses: dorny/test-reporter@v2.2.0
         with:
           name: JUnit test results
           path: hw1/target/surefire-reports/*.xml
@@ -51,7 +51,7 @@ jobs:
 
       - name: Upload test reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: surefire-reports
           path: hw1/target/surefire-reports/
@@ -59,7 +59,7 @@ jobs:
 
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: jacoco-coverage
           path: |
