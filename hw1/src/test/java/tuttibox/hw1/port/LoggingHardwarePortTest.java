@@ -127,7 +127,7 @@ class LoggingHardwarePortTest {
 
     private List<String> messages() {
         return appender.list.stream()
-            .map(ILoggingEvent::getFormattedMessage)
+            .map(event -> java.util.Objects.requireNonNull(event).getFormattedMessage())
             .toList();
     }
 }

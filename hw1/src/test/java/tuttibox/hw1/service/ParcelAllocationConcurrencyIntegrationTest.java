@@ -79,7 +79,7 @@ class ParcelAllocationConcurrencyIntegrationTest {
 
             List<RegistrationResult> results = List.of(resultA, resultB);
             List<RegistrationResult> successful = results.stream()
-                .filter(RegistrationResult::succeeded)
+                .filter(result -> java.util.Objects.requireNonNull(result).succeeded())
                 .toList();
             List<RegistrationResult> failed = results.stream()
                 .filter(result -> !result.succeeded())

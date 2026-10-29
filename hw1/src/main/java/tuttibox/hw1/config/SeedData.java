@@ -48,8 +48,11 @@ public class SeedData {
         int createdCompartments = 0;
 
         for (StationSeed seed : STATIONS) {
-            Station station = stationRepository.findByCode(seed.code()).orElse(null);
-            if (station == null) {
+            var existingStation = stationRepository.findByCode(seed.code());
+            Station station;
+            if (existingStation.isPresent()) {
+                station = existingStation.get();
+            } else {
                 station = stationRepository.save(new Station(
                     seed.code(), seed.name(), seed.latitude(), seed.longitude()));
                 createdStations++;
@@ -57,7 +60,8 @@ public class SeedData {
 
             Map<CompartmentSize, Integer> counters = new EnumMap<>(CompartmentSize.class);
             for (CompartmentSize size : seed.compartmentSizes()) {
-                int index = counters.merge(size, 1, Integer::sum);
+                int index = counters.getOrDefault(size, 0) + 1;
+                counters.put(size, index);
                 String compartmentCode = "C-" + size + index;
                 if (compartmentRepository.findByStationCodeAndCode(seed.code(), compartmentCode).isEmpty()) {
                     compartmentRepository.save(new Compartment(compartmentCode, station, size));

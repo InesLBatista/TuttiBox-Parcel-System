@@ -4,6 +4,7 @@ import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
@@ -54,8 +55,9 @@ public class StationSearchService {
                 station,
                 distanceKm(from, new Coordinates(station.getLatitude(), station.getLongitude())),
                 availability.getOrDefault(station.getCode(), AvailabilityCounts.empty())))
-            .sorted(Comparator.comparingDouble(NearbyStationDto::distanceKm)
-                .thenComparing(NearbyStationDto::code))
+            .sorted(Comparator.comparingDouble((NearbyStationDto dto) ->
+                    Objects.requireNonNull(dto).distanceKm())
+                .thenComparing(dto -> Objects.requireNonNull(dto).code()))
             .toList();
     }
 
@@ -64,7 +66,9 @@ public class StationSearchService {
             return Map.of();
         }
 
-        List<String> stationCodes = stations.stream().map(Station::getCode).toList();
+        List<String> stationCodes = stations.stream()
+            .map(station -> Objects.requireNonNull(station).getCode())
+            .toList();
 
         Map<String, Map<CompartmentSize, Long>> countsByStation = new java.util.HashMap<>();
         compartmentRepository.countByStationCodesAndStatusGroupedBySize(stationCodes, CompartmentStatus.FREE)

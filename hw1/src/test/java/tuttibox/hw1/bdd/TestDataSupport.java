@@ -44,7 +44,7 @@ public class TestDataSupport {
     private ParcelRepository parcelRepository;
     @Autowired
     private ParcelService parcelService;
-    @Autowired
+    @Autowired(required = false)
     private ParcelLifecycleScheduler scheduler;
     @Autowired
     private SeedData seedData;
@@ -155,7 +155,11 @@ public class TestDataSupport {
     }
 
     public void runScheduler() {
-        scheduler.applyDeadlines();
+        if (scheduler != null) {
+            scheduler.applyDeadlines();
+        } else {
+            parcelService.applyDeadlines();
+        }
     }
 
     public Parcel requireParcel(String trackingCode) {

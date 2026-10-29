@@ -4,31 +4,142 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="/styles.css">
-    <title>TuttiBox - Terminal do destinatario</title>
+    <title>TuttiBox - Terminal do destinatário</title>
 </head>
 <body class="page page-recipient">
     <main>
         <header>
-            <h1>Terminal do destinatario</h1>
-            <p>Introduza o codigo de recolha recebido por mensagem para abrir o compartimento e levantar a encomenda.</p>
+            <p class="kicker">Locker TuttiBox</p>
+            <h1>Terminal do destinatário</h1>
+            <p>Introduza o código de recolha de 8 caracteres que recebeu para abrir o compartimento e retirar a sua encomenda.</p>
         </header>
-        <section class="card">
-            <h2>Recolha</h2>
+
+        <section class="card" aria-labelledby="pickup-title">
+            <h2 id="pickup-title">Recolher encomenda</h2>
             <form id="pickup-form" novalidate>
-                <label for="pickup-code">Codigo de recolha</label>
-                <input id="pickup-code" name="pickupCode" inputmode="text" autocomplete="one-time-code" maxlength="8" placeholder="ABCD2345" required>
-                <button id="submit-button" type="submit">Recolher encomenda</button>
+                <div class="field wide">
+                    <label for="pickup-code">Código de recolha</label>
+                    <input id="pickup-code" name="pickupCode" type="text"
+                           inputmode="text" autocomplete="one-time-code" maxlength="8"
+                           placeholder="Ex.: ABCD2345" autocapitalize="characters"
+                           spellcheck="false" required>
+                </div>
+                <div class="actions">
+                    <button id="submit-button" type="submit">Recolher encomenda</button>
+                    <button id="reset-button" class="secondary" type="button">Limpar</button>
+                </div>
+                <p class="hint">O código de recolha é composto por 8 caracteres alfanuméricos e é de utilização única.</p>
             </form>
+
+            <p id="status" class="message" role="status" aria-live="polite" hidden></p>
         </section>
-        <section id="status" hidden></section>
+
+        <section id="success" class="card" aria-labelledby="success-title" hidden>
+            <h2 id="success-title">Compartimento aberto com sucesso</h2>
+            <div id="success-summary" class="summary"></div>
+            <div class="actions">
+                <button id="new-pickup-button" class="secondary" type="button">Nova recolha</button>
+            </div>
+            <p class="hint">Retire a sua encomenda e certifique-se de fechar a porta do compartimento.</p>
+        </section>
+
         <footer>
-            <a href="/">Encontrar estacao</a> | <a href="/courier.html">Terminal do courier</a> | <a href="/tracking.html">Consultar tracking</a> | <a href="/operator.html">Supervisão do operador</a>
+            <span>TuttiBox &mdash; rede de cacifos inteligentes</span>
+            <div>
+                <a href="/">Encontrar estação</a> &middot; <a href="/courier.html">Terminal do courier</a> &middot; <a href="/tracking.html">Consultar tracking</a> &middot; <a href="/operator.html">Supervisão do operador</a>
+            </div>
         </footer>
     </main>
+
     <script>
-        const form=document.getElementById("pickup-form");
-        const codeInput=document.getElementById("pickup-code");
-        form.addEventListener("submit",async(e)=>{e.preventDefault();await fetch("/api/parcels/pickup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pickupCode:codeInput.value})});});
+        const form = document.getElementById("pickup-form");
+        const codeInput = document.getElementById("pickup-code");
+        const submitButton = document.getElementById("submit-button");
+        const resetButton = document.getElementById("reset-button");
+        const statusMessage = document.getElementById("status");
+        const successSection = document.getElementById("success");
+        const successSummary = document.getElementById("success-summary");
+        const newPickupButton = document.getElementById("new-pickup-button");
+
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const code = codeInput.value.trim().toUpperCase();
+            if (!code) {
+                showError("Por favor, introduza o código de recolha.");
+                return;
+            }
+            if (code.length !== 8) {
+                showError("O código de recolha deve conter exatamente 8 caracteres.");
+                return;
+            }
+
+            setLoading(true);
+            statusMessage.hidden = true;
+            successSection.hidden = true;
+
+            try {
+                const response = await fetch("/api/parcels/pickup", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ pickupCode: code })
+                });
+
+                const payload = await response.json().catch(() => null);
+
+                if (!response.ok) {
+                    const msg = (payload && payload.message)
+                        || "Não foi possível efetuar o levantamento. Verifique o código e tente novamente.";
+                    showError(msg);
+                    return;
+                }
+
+                showSuccess(payload);
+            } catch (error) {
+                showError("Erro na ligação ao servidor. Por favor, tente novamente.");
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        resetButton.addEventListener("click", () => {
+            codeInput.value = "";
+            statusMessage.hidden = true;
+            successSection.hidden = true;
+            codeInput.focus();
+        });
+
+        newPickupButton.addEventListener("click", () => {
+            codeInput.value = "";
+            statusMessage.hidden = true;
+            successSection.hidden = true;
+            form.hidden = false;
+            codeInput.focus();
+        });
+
+        function showSuccess(parcel) {
+            statusMessage.hidden = true;
+            const compCode = parcel.assignedCompartmentCode || (parcel.assignedCompartment && parcel.assignedCompartment.code) || "atribuído";
+            const stationCode = parcel.assignedStationCode || (parcel.station && parcel.station.code) || "";
+            successSummary.innerHTML = `
+                <p>O compartimento <strong>${compCode}</strong>${stationCode ? ` na estação <strong>${stationCode}</strong>` : ''} está aberto!</p>
+                <p>Retire a sua encomenda (Tracking: <code>${parcel.trackingCode || ''}</code>) e feche a porta.</p>
+            `;
+            successSection.hidden = false;
+            form.hidden = true;
+        }
+
+        function showError(message) {
+            statusMessage.textContent = message;
+            statusMessage.className = "message error";
+            statusMessage.hidden = false;
+            successSection.hidden = true;
+        }
+
+        function setLoading(loading) {
+            submitButton.disabled = loading;
+            submitButton.textContent = loading ? "A verificar..." : "Recolher encomenda";
+            form.setAttribute("aria-busy", String(loading));
+        }
     </script>
 </body>
 </html>

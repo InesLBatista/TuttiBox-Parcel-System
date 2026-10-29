@@ -51,10 +51,10 @@ class StationSearchServiceTest {
         List<NearbyStationDto> result = stationSearchService.findNearestStations("Anadia");
 
         assertThat(result)
-            .extracting(NearbyStationDto::code)
+            .extracting(dto -> java.util.Objects.requireNonNull(dto).code())
             .containsExactly("ST-NEAR", "ST-MID", "ST-FAR");
         assertThat(result)
-            .extracting(NearbyStationDto::distanceKm)
+            .extracting(dto -> java.util.Objects.requireNonNull(dto).distanceKm())
             .isSorted();
         assertThat(result.get(0).distanceKm()).isZero();
         assertThat(result.get(0).name()).isEqualTo("Estação Perto");

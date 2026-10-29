@@ -188,6 +188,8 @@ class NominatimGeocodingAdapterTest {
     }
 
     private java.util.List<String> messages() {
-        return appender.list.stream().map(ILoggingEvent::getFormattedMessage).toList();
+        return appender.list.stream()
+            .map(event -> java.util.Objects.requireNonNull(event).getFormattedMessage())
+            .toList();
     }
 }

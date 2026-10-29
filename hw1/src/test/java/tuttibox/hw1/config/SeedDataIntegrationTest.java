@@ -11,7 +11,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Transactional;
 
 import tuttibox.hw1.TestcontainersConfiguration;
-import tuttibox.hw1.model.Compartment;
 import tuttibox.hw1.repository.CompartmentRepository;
 import tuttibox.hw1.repository.ParcelRepository;
 import tuttibox.hw1.repository.StationRepository;
@@ -44,7 +43,7 @@ class SeedDataIntegrationTest {
         assertThat(stationRepository.count()).isEqualTo(3);
         assertThat(compartmentRepository.count()).isEqualTo(18);
         assertThat(compartmentRepository.findByStation_CodeOrderByCodeAsc("ST-AVEIRO-CENTRO"))
-            .extracting(Compartment::getCode)
+            .extracting(compartment -> java.util.Objects.requireNonNull(compartment).getCode())
             .containsExactly("C-L1", "C-L2", "C-M1", "C-M2", "C-S1", "C-S2");
 
         seedData.seed();

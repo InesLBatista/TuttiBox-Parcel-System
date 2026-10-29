@@ -162,6 +162,7 @@ public class AssertionSteps {
     }
 
     @Then("the compartment {string} at station {string} has status {string}")
+    @Then("compartment {string} at station {string} has status {string}")
     public void theCompartmentHasStatus(String compartmentCode, String stationCode, String expected) {
         Compartment compartment = compartmentRepository
             .findByStationCodeAndCode(stationCode, compartmentCode)
@@ -215,6 +216,7 @@ public class AssertionSteps {
     }
 
     @Then("the system contains {int} parcels")
+    @Then("the system contains {int} parcel")
     public void theSystemContainsParcels(int expected) {
         assertThat(data.parcelCount()).isEqualTo(expected);
     }

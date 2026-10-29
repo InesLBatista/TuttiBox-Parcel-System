@@ -9,64 +9,135 @@
 <body class="page page-tracking">
     <main>
         <header>
+            <p class="kicker">Locker TuttiBox</p>
             <h1>Consultar estado da encomenda</h1>
-            <p>Introduza o código de tracking para ver o estado atual e histórico.</p>
+            <p>Introduza o código de tracking para ver o estado atual e o histórico cronológico de transições.</p>
         </header>
-        <section class="card">
-            <form id="track-form">
-                <input id="tracking-code" name="trackingCode" placeholder="TBX-..." required>
-                <button type="submit">Consultar</button>
+
+        <section class="card" aria-labelledby="track-title">
+            <h2 id="track-title">Rastrear encomenda</h2>
+            <form id="track-form" novalidate>
+                <div class="field wide">
+                    <label for="tracking-code">Código de tracking</label>
+                    <input id="tracking-code" name="trackingCode" type="text"
+                           placeholder="Ex.: TRK-12345678" autocapitalize="characters"
+                           spellcheck="false" required>
+                </div>
+                <div class="actions">
+                    <button id="submit-button" type="submit">Consultar</button>
+                    <button id="reset-button" class="secondary" type="button">Limpar</button>
+                </div>
+                <p class="hint">O código de tracking foi atribuído quando a encomenda foi registada pelo parceiro.</p>
             </form>
+
+            <p id="status-message" class="message" role="status" aria-live="polite" hidden></p>
         </section>
-        <section id="status-card" class="card hidden">
-            <h2>Estado atual</h2>
+
+        <section id="status-card" class="card hidden" aria-labelledby="status-title">
+            <h2 id="status-title">Estado atual</h2>
             <p><strong>Código:</strong> <span id="code"></span></p>
-            <p><strong>Estado:</strong> <span id="state"></span></p>
+            <p><strong>Estado:</strong> <span id="state" class="status-badge"></span></p>
         </section>
-        <section id="history-card" class="card hidden">
-            <h2>Histórico</h2>
+
+        <section id="history-card" class="card hidden" aria-labelledby="history-title">
+            <h2 id="history-title">Histórico de transições</h2>
             <ul id="history"></ul>
         </section>
+
         <footer>
-            <a href="/">Início</a> | <a href="/recipient.html">Terminal do destinatário</a> | <a href="/courier.html">Terminal do courier</a> | <a href="/operator.html">Supervisão do operador</a>
+            <span>TuttiBox &mdash; rede de cacifos inteligentes</span>
+            <div>
+                <a href="/">Encontrar estação</a> &middot; <a href="/recipient.html">Terminal do destinatário</a> &middot; <a href="/courier.html">Terminal do courier</a> &middot; <a href="/operator.html">Supervisão do operador</a>
+            </div>
         </footer>
     </main>
+
     <script>
-        const form=document.getElementById('track-form');
-        const trackingInput=document.getElementById('tracking-code');
-        const statusCard=document.getElementById('status-card');
-        const historyCard=document.getElementById('history-card');
-        const codeEl=document.getElementById('code');
-        const stateEl=document.getElementById('state');
-        const historyEl=document.getElementById('history');
-        const params=new URLSearchParams(location.search);
-        if(params.get('code')){trackingInput.value=params.get('code');}
-        form.addEventListener('submit',async(e)=>{
+        const form = document.getElementById('track-form');
+        const trackingInput = document.getElementById('tracking-code');
+        const submitButton = document.getElementById('submit-button');
+        const resetButton = document.getElementById('reset-button');
+        const statusMessage = document.getElementById('status-message');
+        const statusCard = document.getElementById('status-card');
+        const historyCard = document.getElementById('history-card');
+        const codeEl = document.getElementById('code');
+        const stateEl = document.getElementById('state');
+        const historyEl = document.getElementById('history');
+
+        const params = new URLSearchParams(location.search);
+        if (params.get('code')) {
+            trackingInput.value = params.get('code');
+        }
+
+        form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const code=trackingInput.value.trim();
-            if(!code)return;
-            try{
-                const [sRes,hRes]=await Promise.all([
-                    fetch('/api/parcels/'+encodeURIComponent(code)+'/status'),
-                    fetch('/api/parcels/'+encodeURIComponent(code)+'/history')
+            const code = trackingInput.value.trim().toUpperCase();
+            if (!code) {
+                showError('Por favor, introduza um código de tracking.');
+                return;
+            }
+
+            setLoading(true);
+            hideDetails();
+            statusMessage.hidden = true;
+
+            try {
+                const [sRes, hRes] = await Promise.all([
+                    fetch('/api/parcels/' + encodeURIComponent(code) + '/status'),
+                    fetch('/api/parcels/' + encodeURIComponent(code) + '/history')
                 ]);
-                if(!sRes.ok) throw new Error('not found');
-                const status=await sRes.json();
-                const history=await hRes.json();
-                codeEl.textContent=code;
-                stateEl.textContent=status;
-                historyEl.innerHTML='';
-                (history||[]).forEach(h=>{
-                    const li=document.createElement('li');
-                    li.textContent=(h.transitionDate||'')+' - '+(h.fromState||'?')+' -> '+(h.toState||'?')+' ('+(h.actor||'')+')';
+
+                if (!sRes.ok) {
+                    throw new Error('Encomenda não encontrada com o código indicado.');
+                }
+
+                const status = await sRes.json();
+                const history = await hRes.json();
+
+                codeEl.textContent = code;
+                stateEl.textContent = status;
+                historyEl.innerHTML = '';
+
+                (history || []).forEach(h => {
+                    const li = document.createElement('li');
+                    const date = h.transitionDate ? h.transitionDate.replace('T', ' ') : '';
+                    li.textContent = `${date} — ${h.fromState || 'INÍCIO'} → ${h.toState || '?'} (${h.actor || 'SISTEMA'})`;
                     historyEl.appendChild(li);
                 });
+
                 statusCard.classList.remove('hidden');
                 historyCard.classList.remove('hidden');
-            }catch(err){
-                alert('Encomenda não encontrada');
+            } catch (err) {
+                showError(err.message || 'Erro ao consultar encomenda.');
+            } finally {
+                setLoading(false);
             }
         });
+
+        resetButton.addEventListener('click', () => {
+            trackingInput.value = '';
+            statusMessage.hidden = true;
+            hideDetails();
+            trackingInput.focus();
+        });
+
+        function hideDetails() {
+            statusCard.classList.add('hidden');
+            historyCard.classList.add('hidden');
+        }
+
+        function showError(msg) {
+            statusMessage.textContent = msg;
+            statusMessage.className = 'message error';
+            statusMessage.hidden = false;
+            hideDetails();
+        }
+
+        function setLoading(loading) {
+            submitButton.disabled = loading;
+            submitButton.textContent = loading ? 'A consultar...' : 'Consultar';
+            form.setAttribute('aria-busy', String(loading));
+        }
     </script>
 </body>
 </html>

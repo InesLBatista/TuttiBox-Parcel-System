@@ -147,7 +147,7 @@ public class SetupSteps {
     @Then("exactly one registration succeeds")
     public void exactlyOneRegistrationSucceeds() {
         assertThat(state.getConcurrentRegistrations().stream()
-            .filter(ScenarioState.ConcurrentRegistration::succeeded)
+            .filter(registration -> java.util.Objects.requireNonNull(registration).succeeded())
             .count()).isEqualTo(1);
     }
 
@@ -155,7 +155,7 @@ public class SetupSteps {
     public void oneRegistrationFailsWithAConflict() {
         assertThat(state.getConcurrentRegistrations().stream()
             .filter(registration -> !registration.succeeded())
-            .map(ScenarioState.ConcurrentRegistration::failure)
+            .map(registration -> java.util.Objects.requireNonNull(registration).failure())
             .toList())
             .singleElement()
             .isInstanceOf(NoAvailableCompartmentException.class);
