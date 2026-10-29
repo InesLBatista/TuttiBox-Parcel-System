@@ -1,4 +1,15 @@
 services:
+  sonarqube:
+    image: sonarqube:community
+    profiles:
+      - sonar
+    ports:
+      - "9000:9000"
+    volumes:
+      - sonarqube-data:/opt/sonarqube/data
+      - sonarqube-extensions:/opt/sonarqube/extensions
+      - sonarqube-logs:/opt/sonarqube/logs
+
   postgres:
     image: postgres:16-alpine
     environment:
@@ -6,9 +17,12 @@ services:
       POSTGRES_USER: tuttibox
       POSTGRES_PASSWORD: tuttibox
     ports:
-      - "5432:5432"
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
     volumes:
       - tuttibox-postgres:/var/lib/postgresql/data
 
 volumes:
   tuttibox-postgres:
+  sonarqube-data:
+  sonarqube-extensions:
+  sonarqube-logs:
